@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D PLACER MONITOR</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:        #080b0f;
+      --bg2:       #0d1117;
+      --bg3:       #111820;
+      --border:    #1e2d3d;
+      --accent:    #00d4ff;
+      --accent2:   #ff6b35;
+      --green:     #00ff9f;
+      --red:       #ff3b5c;
+      --text:      #c8d8e8;
+      --muted:     #4a6278;
+      --mono:      'Share Tech Mono', monospace;
+      --display:   'Orbitron', sans-serif;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--mono);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Scanline overlay */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.07) 2px,
+        rgba(0,0,0,0.07) 4px
+      );
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    /* ─── HEADER ─── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 28px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg2);
+      position: sticky; top: 0; z-index: 50;
+    }
+
+    .logo {
+      font-family: var(--display);
+      font-size: 1.1rem;
+      font-weight: 900;
+      letter-spacing: 0.2em;
+      color: var(--accent);
+      text-shadow: 0 0 18px rgba(0,212,255,0.4);
+    }
+
+    .logo span { color: var(--accent2); }
+
+    .status-bar { display: flex; align-items: center; gap: 20px; font-size: 0.72rem; color: var(--muted); }
+
+    .status-dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--red);
+      box-shadow: 0 0 6px var(--red);
+      transition: all 0.4s;
+    }
+    .status-dot.on { background: var(--green); box-shadow: 0 0 8px var(--green); }
+
+    #serial-status-text { color: var(--text); }
+
+    .time { font-size: 0.75rem; color: var(--muted); }
+
+    /* Port selector */
+    .port-selector { display: flex; align-items: center; gap: 6px; }
+    #port-select {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      padding: 3px 8px;
+      outline: none;
+      cursor: pointer;
+      min-width: 90px;
+      transition: border-color 0.2s;
+    }
+    #port-select:focus { border-color: var(--accent); }
+    #port-select option { background: var(--bg2); }
+    #port-connect-btn {
+      background: transparent;
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      padding: 3px 9px;
+      cursor: pointer;
+      letter-spacing: 0.08em;
+      transition: all 0.2s;
+    }
+    #port-connect-btn:hover { background: var(--accent); color: var(--bg); }
+    #port-refresh-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      padding: 3px 7px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    #port-refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ─── MAIN GRID ─── */
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      grid-template-rows: auto 1fr;
+      gap: 1px;
+      background: var(--border);
+      height: calc(100vh - 53px);
+    }
+
+    .panel {
+      background: var(--bg2);
+      padding: 20px;
+      overflow: hidden;
+    }
+
+    .panel-label {
+      font-family: var(--display);
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.25em;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+    }
+
+    /* ─── CAMERA ─── */
+    .camera-panel {
+      grid-row: 1 / 3;
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+      position: relative;
+    }
+
+    .camera-header {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      font-family: var(--display);
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.25em;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .cam-btn {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      color: var(--accent);
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      padding: 4px 12px;
+      cursor: pointer;
+      letter-spacing: 0.1em;
+      transition: all 0.2s;
+    }
+    .cam-btn:hover { background: var(--accent); color: var(--bg); }
+
+    .camera-container {
+      flex: 1;
+      position: relative;
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    #camera-feed {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .camera-overlay {
+      position: absolute; inset: 0;
+      pointer-events: none;
+    }
+
+    /* Corner brackets */
+    .corner {
+      position: absolute;
+      width: 24px; height: 24px;
+      border-color: var(--accent);
+      border-style: solid;
+      opacity: 0.6;
+    }
+    .corner.tl { top: 12px; left: 12px; border-width: 2px 0 0 2px; }
+    .corner.tr { top: 12px; right: 12px; border-width: 2px 2px 0 0; }
+    .corner.bl { bottom: 12px; left: 12px; border-width: 0 0 2px 2px; }
+    .corner.br { bottom: 12px; right: 12px; border-width: 0 2px 2px 0; }
+
+    /* Crosshair overlay */
+    .crosshair-h {
+      position: absolute; top: 50%; left: 0; right: 0;
+      height: 1px; background: rgba(0,212,255,0.2);
+    }
+    .crosshair-v {
+      position: absolute; left: 50%; top: 0; bottom: 0;
+      width: 1px; background: rgba(0,212,255,0.2);
+    }
+
+    .cam-placeholder {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.8rem;
+      line-height: 2;
+    }
+
+    /* ─── POSITION COORDS ─── */
+    .coords-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+    }
+
+    .coord-box {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      padding: 12px 10px 10px;
+      position: relative;
+      text-align: center;
+      transition: border-color 0.3s;
+    }
+    .coord-box.updated { border-color: var(--accent); animation: flash 0.5s; }
+
+    @keyframes flash {
+      0% { box-shadow: 0 0 0 rgba(0,212,255,0); }
+      50% { box-shadow: 0 0 12px rgba(0,212,255,0.4); }
+      100% { box-shadow: 0 0 0 rgba(0,212,255,0); }
+    }
+
+    .coord-axis {
+      font-family: var(--display);
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      margin-bottom: 6px;
+    }
+    .coord-box:nth-child(1) .coord-axis { color: #ff5a7a; }
+    .coord-box:nth-child(2) .coord-axis { color: #5af0a0; }
+    .coord-box:nth-child(3) .coord-axis { color: #5ac8ff; }
+
+    .coord-val {
+      font-family: var(--display);
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1;
+    }
+
+    .coord-unit {
+      font-size: 0.6rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    /* ─── XY MAP ─── */
+    .map-panel { display: flex; flex-direction: column; }
+
+    #xy-canvas {
+      width: 100%;
+      aspect-ratio: 1;
+      border: 1px solid var(--border);
+      background: var(--bg3);
+      display: block;
+      flex-shrink: 0;
+    }
+
+    /* ─── LOG ─── */
+    .log-panel {
+      grid-column: 1 / 2;
+      display: flex;
+      flex-direction: column;
+      max-height: 220px;
+    }
+
+    #log-container {
+      flex: 1;
+      overflow-y: auto;
+      font-size: 0.7rem;
+      line-height: 1.7;
+      color: var(--muted);
+      padding-right: 4px;
+    }
+    #log-container::-webkit-scrollbar { width: 4px; }
+    #log-container::-webkit-scrollbar-track { background: var(--bg3); }
+    #log-container::-webkit-scrollbar-thumb { background: var(--border); }
+
+    .log-entry { border-bottom: 1px solid rgba(30,45,61,0.5); padding: 2px 0; }
+    .log-entry .ts { color: var(--accent); margin-right: 8px; opacity: 0.6; }
+    .log-entry .msg { color: var(--text); }
+
+    /* ─── COMMAND ─── */
+    .cmd-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    #cmd-input {
+      flex: 1;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      padding: 7px 12px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    #cmd-input:focus { border-color: var(--accent); }
+
+    #cmd-send {
+      background: var(--accent);
+      border: none;
+      color: var(--bg);
+      font-family: var(--display);
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      padding: 7px 16px;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    #cmd-send:hover { opacity: 0.85; }
+
+    /* ─── RIGHT COLUMN LAYOUT ─── */
+    .right-col {
+      grid-column: 2;
+      grid-row: 1 / 3;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg2);
+      border-left: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    .right-section {
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* Z Bar */
+    .z-bar-wrap {
+      display: flex;
+      align-items: flex-end;
+      gap: 14px;
+      height: 90px;
+    }
+
+    .z-bar-bg {
+      width: 28px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      height: 100%;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #z-bar-fill {
+      position: absolute;
+      bottom: 0;
+      left: 0; right: 0;
+      background: linear-gradient(to top, var(--accent2), var(--accent));
+      transition: height 0.4s cubic-bezier(0.23,1,0.32,1);
+      height: 0%;
+    }
+
+    .z-info { flex: 1; }
+    .z-label {
+      font-family: var(--display);
+      font-size: 0.6rem;
+      color: var(--muted);
+      letter-spacing: 0.2em;
+      margin-bottom: 6px;
+    }
+    #z-val-large {
+      font-family: var(--display);
+      font-size: 1.8rem;
+      font-weight: 900;
+      color: var(--accent);
+      text-shadow: 0 0 12px rgba(0,212,255,0.3);
+    }
+    .z-unit { font-size: 0.7rem; color: var(--muted); }
+
+    /* Z max config */
+    .z-config { margin-top: 8px; display: flex; align-items: center; gap: 6px; font-size: 0.66rem; color: var(--muted); }
+    #z-max-input {
+      width: 52px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      padding: 2px 6px;
+      outline: none;
+    }
+
+    /* Trail map label */
+    .map-section { padding: 16px; flex: 1; display: flex; flex-direction: column; }
+
+    /* bottom left full-width log */
+    .bottom-row {
+      grid-column: 1;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg2);
+      border-top: 1px solid var(--border);
+    }
+
+  </style>
+</head>
+<body>
+
+<!-- ─── HEADER ─── -->
+<header>
+  <div class="logo">3D<span>PLACER</span> · MONITOR</div>
+  <div class="status-bar">
+    <a href="/placement.html" style="color:var(--accent2); text-decoration:none; border:1px solid var(--accent2); padding:4px 10px; font-size:0.7rem; letter-spacing:0.15em;">PLACEMENT →</a>
+    <span class="status-dot" id="serial-dot"></span>
+    <span id="serial-status-text">DISCONNECTED</span>
+    <span>|</span>
+    <div class="port-selector">
+      <select id="port-select"><option value="">— select port —</option></select>
+      <button id="port-refresh-btn" title="Refresh port list">↺</button>
+      <button id="port-connect-btn">CONNECT</button>
+    </div>
+    <span>|</span>
+    <span class="time" id="clock">00:00:00</span>
+  </div>
+</header>
+
+<!-- ─── LAYOUT ─── -->
+<div class="grid">
+
+  <!-- CAMERA (left column, full height) -->
+  <div class="panel camera-panel" style="grid-column:1; grid-row:1/3;">
+    <div class="camera-header">
+      <span>LIVE FEED — USB CAMERA</span>
+      <button class="cam-btn" id="cam-toggle">START CAMERA</button>
+    </div>
+    <div class="camera-container">
+      <video id="camera-feed" autoplay muted playsinline></video>
+      <div class="cam-placeholder" id="cam-placeholder">
+        <div style="font-size:2rem; margin-bottom:8px; opacity:0.3">⬡</div>
+        CAMERA OFFLINE<br/>
+        <span style="font-size:0.65rem">Click START CAMERA to activate</span>
+      </div>
+      <div class="camera-overlay" id="cam-overlay" style="display:none">
+        <div class="corner tl"></div>
+        <div class="corner tr"></div>
+        <div class="corner bl"></div>
+        <div class="corner br"></div>
+        <div class="crosshair-h"></div>
+        <div class="crosshair-v"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT COLUMN -->
+  <div class="right-col">
+
+    <!-- COORDINATES -->
+    <div class="right-section">
+      <div class="panel-label">POSITION</div>
+      <div class="coords-grid">
+        <div class="coord-box" id="box-x">
+          <div class="coord-axis">X</div>
+          <div class="coord-val" id="val-x">—</div>
+          <div class="coord-unit">mm</div>
+        </div>
+        <div class="coord-box" id="box-y">
+          <div class="coord-axis">Y</div>
+          <div class="coord-val" id="val-y">—</div>
+          <div class="coord-unit">mm</div>
+        </div>
+        <div class="coord-box" id="box-z">
+          <div class="coord-axis">Z</div>
+          <div class="coord-val" id="val-z">—</div>
+          <div class="coord-unit">mm</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Z HEIGHT BAR -->
+    <div class="right-section">
+      <div class="panel-label">Z HEIGHT</div>
+      <div class="z-bar-wrap">
+        <div class="z-bar-bg"><div id="z-bar-fill"></div></div>
+        <div class="z-info">
+          <div class="z-label">CURRENT</div>
+          <div id="z-val-large">—</div>
+          <div class="z-unit">mm</div>
+        </div>
+      </div>
+      <div class="z-config">
+        MAX Z:
+        <input type="number" id="z-max-input" value="200" min="1" />
+        mm
+      </div>
+    </div>
+
+    <!-- XY MAP -->
+    <div class="map-section">
+      <div class="panel-label">XY TRAIL MAP</div>
+      <canvas id="xy-canvas"></canvas>
+      <div style="display:flex;justify-content:space-between;margin-top:6px;">
+        <span style="font-size:0.65rem;color:var(--muted)">BED: <span id="bed-size-label">220×220mm</span></span>
+        <button class="cam-btn" onclick="clearTrail()" style="font-size:0.62rem;padding:2px 8px;">CLEAR</button>
+      </div>
+    </div>
+
+    <!-- SEND COMMAND -->
+    <div class="right-section">
+      <div class="panel-label">SEND COMMAND</div>
+      <div class="cmd-row">
+        <input type="text" id="cmd-input" placeholder="e.g.  G28  or  M114" />
+        <button id="cmd-send">SEND</button>
+      </div>
+    </div>
+
+  </div><!-- /right-col -->
+
+  <!-- SERIAL LOG (bottom, left) -->
+  <div class="bottom-row" style="grid-column:1; grid-row:3;">
+    <div class="panel" style="max-height:200px;">
+      <div class="panel-label">SERIAL LOG</div>
+      <div id="log-container"></div>
+    </div>
+  </div>
+
+</div><!-- /grid -->
+
+<script>
+// ─── STATE ────────────────────────────────────────────────────────────────────
+const pos = { x: null, y: null, z: null };
+const trail = [];
+const BED_W = 220, BED_H = 220; // mm — adjust to your bed size
+let zMax = 200;
+
+// ─── WEBSOCKET ────────────────────────────────────────────────────────────────
+const ws = new WebSocket(`ws://${location.host}`);
+
+ws.addEventListener("message", (e) => {
+  const msg = JSON.parse(e.data);
+
+  if (msg.type === "serial_status") {
+    const dot = document.getElementById("serial-dot");
+    const txt = document.getElementById("serial-status-text");
+    dot.className = "status-dot" + (msg.connected ? " on" : "");
+    txt.textContent = msg.connected ? `CONNECTED` : "DISCONNECTED";
+  }
+
+  if (msg.type === "position") {
+    if (msg.x !== undefined) updateCoord("x", msg.x);
+    if (msg.y !== undefined) updateCoord("y", msg.y);
+    if (msg.z !== undefined) updateCoord("z", msg.z);
+    if (pos.x !== null && pos.y !== null) {
+      trail.push({ x: pos.x, y: pos.y });
+      if (trail.length > 800) trail.shift();
+      drawTrail();
+    }
+  }
+
+  if (msg.type === "log") appendLog(msg.message, msg.timestamp);
+});
+
+ws.addEventListener("close", () => {
+  document.getElementById("serial-dot").className = "status-dot";
+  document.getElementById("serial-status-text").textContent = "WS DISCONNECTED";
+});
+
+// ─── COORD UPDATE ─────────────────────────────────────────────────────────────
+function updateCoord(axis, val) {
+  pos[axis] = val;
+  const formatted = val.toFixed(2);
+  document.getElementById(`val-${axis}`).textContent = formatted;
+
+  const box = document.getElementById(`box-${axis}`);
+  box.classList.remove("updated");
+  void box.offsetWidth;
+  box.classList.add("updated");
+
+  if (axis === "z") {
+    document.getElementById("z-val-large").textContent = formatted;
+    zMax = parseFloat(document.getElementById("z-max-input").value) || 200;
+    const pct = Math.min(100, Math.max(0, (val / zMax) * 100));
+    document.getElementById("z-bar-fill").style.height = pct + "%";
+  }
+}
+
+// ─── XY TRAIL MAP ─────────────────────────────────────────────────────────────
+const canvas = document.getElementById("xy-canvas");
+const ctx = canvas.getContext("2d");
+
+function resizeCanvas() {
+  const size = canvas.clientWidth;
+  canvas.width = size;
+  canvas.height = size;
+  drawTrail();
+}
+
+function drawTrail() {
+  const W = canvas.width, H = canvas.height;
+  const pad = 24;
+  const scaleX = (W - pad * 2) / BED_W;
+  const scaleY = (H - pad * 2) / BED_H;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Background grid
+  ctx.strokeStyle = "rgba(30,45,61,0.8)";
+  ctx.lineWidth = 1;
+  const gridStep = 40;
+  for (let gx = 0; gx <= BED_W; gx += gridStep) {
+    const px = pad + gx * scaleX;
+    ctx.beginPath(); ctx.moveTo(px, pad); ctx.lineTo(px, H - pad); ctx.stroke();
+  }
+  for (let gy = 0; gy <= BED_H; gy += gridStep) {
+    const py = pad + gy * scaleY;
+    ctx.beginPath(); ctx.moveTo(pad, py); ctx.lineTo(W - pad, py); ctx.stroke();
+  }
+
+  // Bed outline
+  ctx.strokeStyle = "rgba(0,212,255,0.25)";
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(pad, pad, BED_W * scaleX, BED_H * scaleY);
+
+  // Trail
+  if (trail.length > 1) {
+    ctx.beginPath();
+    ctx.strokeStyle = "rgba(0,255,159,0.5)";
+    ctx.lineWidth = 1.5;
+    ctx.lineJoin = "round";
+    trail.forEach((p, i) => {
+      const px = pad + p.x * scaleX;
+      const py = pad + (BED_H - p.y) * scaleY;
+      i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+    });
+    ctx.stroke();
+  }
+
+  // Current position dot
+  if (pos.x !== null && pos.y !== null) {
+    const cx = pad + pos.x * scaleX;
+    const cy = pad + (BED_H - pos.y) * scaleY;
+
+    // Pulse ring
+    ctx.beginPath();
+    ctx.arc(cx, cy, 7, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(0,212,255,0.3)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+    ctx.fillStyle = "#00d4ff";
+    ctx.shadowColor = "#00d4ff";
+    ctx.shadowBlur = 8;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Crosshairs
+    ctx.strokeStyle = "rgba(0,212,255,0.4)";
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(cx, pad); ctx.lineTo(cx, H - pad); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pad, cy); ctx.lineTo(W - pad, cy); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Axis labels
+  ctx.fillStyle = "rgba(74,98,120,0.9)";
+  ctx.font = `10px 'Share Tech Mono'`;
+  ctx.fillText("0", pad - 14, H - pad + 2);
+  ctx.fillText(BED_W, W - pad - 12, H - pad + 14);
+  ctx.fillText(BED_H, pad - 24, pad + 4);
+}
+
+function clearTrail() {
+  trail.length = 0;
+  drawTrail();
+}
+
+window.addEventListener("resize", resizeCanvas);
+setTimeout(resizeCanvas, 100);
+
+// ─── CAMERA ───────────────────────────────────────────────────────────────────
+let cameraOn = false;
+document.getElementById("cam-toggle").addEventListener("click", async () => {
+  if (!cameraOn) {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      const video = document.getElementById("camera-feed");
+      video.srcObject = stream;
+      document.getElementById("cam-placeholder").style.display = "none";
+      document.getElementById("cam-overlay").style.display = "block";
+      document.getElementById("cam-toggle").textContent = "STOP CAMERA";
+      cameraOn = true;
+    } catch (e) {
+      alert("Camera error: " + e.message);
+    }
+  } else {
+    const video = document.getElementById("camera-feed");
+    if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
+    video.srcObject = null;
+    document.getElementById("cam-placeholder").style.display = "";
+    document.getElementById("cam-overlay").style.display = "none";
+    document.getElementById("cam-toggle").textContent = "START CAMERA";
+    cameraOn = false;
+  }
+});
+
+// ─── COMMAND ──────────────────────────────────────────────────────────────────
+function sendCommand() {
+  const input = document.getElementById("cmd-input");
+  const cmd = input.value.trim();
+  if (!cmd) return;
+  ws.send(JSON.stringify({ type: "command", command: cmd }));
+  appendLog(`> ${cmd}`, new Date().toISOString(), true);
+  input.value = "";
+}
+
+document.getElementById("cmd-send").addEventListener("click", sendCommand);
+document.getElementById("cmd-input").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") sendCommand();
+});
+
+// ─── LOG ──────────────────────────────────────────────────────────────────────
+function appendLog(msg, ts, isSent = false) {
+  const container = document.getElementById("log-container");
+  const t = ts ? new Date(ts).toLocaleTimeString("en-GB") : "--:--:--";
+  const div = document.createElement("div");
+  div.className = "log-entry";
+  div.innerHTML = `<span class="ts">${t}</span><span class="msg" style="${isSent ? "color:var(--accent2)" : ""}">${msg}</span>`;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  // Keep max 200 entries
+  while (container.children.length > 200) container.removeChild(container.firstChild);
+}
+
+// ─── PORT SELECTOR ────────────────────────────────────────────────────────────
+async function loadPorts() {
+  try {
+    const res = await fetch("/api/ports");
+    const data = await res.json();
+    const select = document.getElementById("port-select");
+    const current = data.current;
+
+    select.innerHTML = '<option value="">— select port —</option>';
+    data.ports.forEach(p => {
+      const opt = document.createElement("option");
+      opt.value = p.path;
+      const label = p.manufacturer ? `${p.path} (${p.manufacturer})` : p.path;
+      opt.textContent = label;
+      if (p.path === current) opt.selected = true;
+      select.appendChild(opt);
+    });
+
+    if (!current && data.ports.length > 0) {
+      // Auto-select first port
+      select.selectedIndex = 1;
+    }
+  } catch (e) {
+    console.error("Could not load ports:", e);
+  }
+}
+
+document.getElementById("port-refresh-btn").addEventListener("click", loadPorts);
+
+document.getElementById("port-connect-btn").addEventListener("click", async () => {
+  const select = document.getElementById("port-select");
+  const chosen = select.value;
+  if (!chosen) { alert("Please select a COM port first."); return; }
+
+  const btn = document.getElementById("port-connect-btn");
+  btn.textContent = "…";
+  btn.disabled = true;
+
+  try {
+    const res = await fetch("/api/connect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ port: chosen }),
+    });
+    const data = await res.json();
+    if (!data.ok) alert("Failed to switch port.");
+  } catch (e) {
+    alert("Error: " + e.message);
+  }
+
+  btn.textContent = "CONNECT";
+  btn.disabled = false;
+});
+
+// Update select highlight when WS confirms connection
+const _origSerialHandler = null;
+ws.addEventListener("message", (e) => {
+  const msg = JSON.parse(e.data);
+  if (msg.type === "serial_status" && msg.port) {
+    const select = document.getElementById("port-select");
+    for (const opt of select.options) {
+      if (opt.value === msg.port) { opt.selected = true; break; }
+    }
+  }
+});
+
+// Load ports on startup
+loadPorts();
+
+
+function updateClock() {
+  document.getElementById("clock").textContent = new Date().toLocaleTimeString("en-GB");
+}
+setInterval(updateClock, 1000);
+updateClock();
+</script>
+</body>
+</html>

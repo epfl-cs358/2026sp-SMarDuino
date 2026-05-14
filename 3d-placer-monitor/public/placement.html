@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D PLACER — PLACEMENT</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:#080b0f; --bg2:#0d1117; --bg3:#111820;
+      --border:#1e2d3d; --accent:#00d4ff; --accent2:#ff6b35;
+      --green:#00ff9f; --red:#ff3b5c; --yellow:#ffd83b;
+      --text:#c8d8e8; --muted:#4a6278;
+      --mono:'Share Tech Mono', monospace; --display:'Orbitron', sans-serif;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { background:var(--bg); color:var(--text); font-family:var(--mono); min-height:100vh; }
+    body::before {
+      content:''; position:fixed; inset:0;
+      background:repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.07) 2px, rgba(0,0,0,0.07) 4px);
+      pointer-events:none; z-index:100;
+    }
+
+    header {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:14px 28px; border-bottom:1px solid var(--border);
+      background:var(--bg2); position:sticky; top:0; z-index:50;
+    }
+    .logo {
+      font-family:var(--display); font-size:1.1rem; font-weight:900;
+      letter-spacing:0.2em; color:var(--accent);
+      text-shadow:0 0 18px rgba(0,212,255,0.4);
+    }
+    .logo span { color:var(--accent2); }
+    .nav-link {
+      color:var(--muted); text-decoration:none; font-size:0.75rem;
+      letter-spacing:0.15em; padding:6px 14px;
+      border:1px solid var(--border); transition:all 0.2s;
+    }
+    .nav-link:hover { color:var(--accent); border-color:var(--accent); }
+    .status-bar { display:flex; align-items:center; gap:14px; font-size:0.72rem; color:var(--muted); }
+    .status-dot {
+      width:8px; height:8px; border-radius:50%;
+      background:var(--red); box-shadow:0 0 6px var(--red);
+    }
+    .status-dot.on { background:var(--green); box-shadow:0 0 8px var(--green); }
+
+    .layout {
+      display:grid;
+      grid-template-columns: 360px 1fr 380px;
+      grid-template-rows: 1fr auto;
+      height: calc(100vh - 53px);
+      gap:1px; background:var(--border);
+    }
+
+    .panel { background:var(--bg2); padding:18px; overflow-y:auto; }
+    .panel-title {
+      font-family:var(--display); font-size:0.65rem; font-weight:700;
+      letter-spacing:0.25em; color:var(--muted); text-transform:uppercase;
+      padding-bottom:8px; border-bottom:1px solid var(--border); margin-bottom:14px;
+    }
+    .section { margin-bottom:22px; }
+    .section h3 {
+      font-family:var(--display); font-size:0.7rem; color:var(--accent);
+      letter-spacing:0.15em; margin-bottom:8px; font-weight:700;
+    }
+
+    label { display:block; font-size:0.7rem; color:var(--muted); margin-bottom:4px; }
+    .row { display:flex; gap:8px; margin-bottom:8px; }
+    .row > * { flex:1; min-width:0; }
+
+    input[type=number], input[type=text], select {
+      background:var(--bg3); border:1px solid var(--border); color:var(--text);
+      font-family:var(--mono); font-size:0.78rem; padding:6px 9px;
+      outline:none; width:100%; transition:border-color 0.2s;
+    }
+    input:focus, select:focus { border-color:var(--accent); }
+    select option { background:var(--bg2); }
+
+    button {
+      background:transparent; border:1px solid var(--accent); color:var(--accent);
+      font-family:var(--display); font-size:0.7rem; font-weight:700;
+      letter-spacing:0.1em; padding:7px 14px; cursor:pointer;
+      transition:all 0.2s; text-transform:uppercase;
+    }
+    button:hover { background:var(--accent); color:var(--bg); }
+    button.primary { background:var(--accent); color:var(--bg); }
+    button.primary:hover { opacity:0.85; }
+    button.danger { border-color:var(--red); color:var(--red); }
+    button.danger:hover { background:var(--red); color:var(--bg); }
+    button.warning { border-color:var(--yellow); color:var(--yellow); }
+    button.warning:hover { background:var(--yellow); color:var(--bg); }
+    button:disabled { opacity:0.35; cursor:not-allowed; }
+
+    .upload-zone {
+      border:2px dashed var(--border); border-radius:4px;
+      padding:24px; text-align:center; cursor:pointer;
+      transition:all 0.2s; color:var(--muted);
+    }
+    .upload-zone:hover, .upload-zone.dragging {
+      border-color:var(--accent); color:var(--accent); background:rgba(0,212,255,0.04);
+    }
+    .upload-zone input { display:none; }
+
+    /* Component table */
+    .components-wrap {
+      max-height:340px; overflow-y:auto; border:1px solid var(--border);
+    }
+    table { width:100%; border-collapse:collapse; font-size:0.72rem; }
+    th, td {
+      padding:6px 8px; text-align:left; border-bottom:1px solid rgba(30,45,61,0.5);
+    }
+    th {
+      background:var(--bg3); color:var(--muted); font-family:var(--display);
+      font-size:0.6rem; letter-spacing:0.15em; position:sticky; top:0;
+    }
+    tr.done td { opacity:0.4; }
+    tr.current { background:rgba(0,212,255,0.08); }
+    tr.current td { color:var(--accent); }
+    tr.skipped td { color:var(--muted); font-style:italic; }
+    tr.no-feeder td { color:var(--yellow); }
+
+    .badge {
+      display:inline-block; padding:1px 6px; border-radius:2px;
+      font-size:0.62rem; letter-spacing:0.1em;
+    }
+    .badge.ok    { background:rgba(0,255,159,0.15); color:var(--green); }
+    .badge.warn  { background:rgba(255,216,59,0.15); color:var(--yellow); }
+    .badge.done  { background:rgba(74,98,120,0.2); color:var(--muted); }
+
+    /* PCB Canvas */
+    .canvas-wrap {
+      background:var(--bg2); padding:18px; display:flex; flex-direction:column;
+      grid-column:2; grid-row:1;
+    }
+    #pcb-canvas {
+      flex:1; width:100%; border:1px solid var(--border); background:var(--bg3);
+      min-height:400px;
+    }
+
+    /* Feeder mapping */
+    .feeder-row {
+      display:grid; grid-template-columns: 60px 1fr 1fr 26px;
+      gap:6px; margin-bottom:4px; align-items:center;
+    }
+    .feeder-row .val { font-size:0.74rem; color:var(--accent); font-weight:700; }
+    .feeder-row input { padding:4px 7px; font-size:0.72rem; }
+    .feeder-row .del-btn {
+      background:transparent; border:1px solid var(--border); color:var(--muted);
+      padding:2px 0; font-size:0.7rem;
+    }
+    .feeder-row .del-btn:hover { border-color:var(--red); color:var(--red); }
+
+    /* Placement controls */
+    .controls-grid {
+      display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-bottom:14px;
+    }
+    .controls-grid button { padding:10px; font-size:0.72rem; }
+
+    .progress-bar {
+      height:6px; background:var(--bg3); border:1px solid var(--border);
+      position:relative; overflow:hidden; margin-bottom:6px;
+    }
+    .progress-fill {
+      position:absolute; left:0; top:0; bottom:0;
+      background:linear-gradient(90deg, var(--accent), var(--green));
+      width:0%; transition:width 0.3s;
+    }
+    .progress-text {
+      font-size:0.7rem; color:var(--muted); display:flex; justify-content:space-between;
+    }
+
+    /* Footer log */
+    .log-row {
+      grid-column:1 / 4; grid-row:2;
+      background:var(--bg2); border-top:1px solid var(--border);
+      padding:12px 20px; max-height:160px; overflow:hidden;
+      display:flex; flex-direction:column;
+    }
+    #log-container {
+      flex:1; overflow-y:auto; font-size:0.7rem; line-height:1.6; color:var(--muted);
+    }
+    .log-entry .ts { color:var(--accent); opacity:0.6; margin-right:8px; }
+
+    .small { font-size:0.68rem; color:var(--muted); margin-top:4px; }
+
+    .pos-readout {
+      display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-bottom:14px;
+    }
+    .pos-cell {
+      background:var(--bg3); border:1px solid var(--border); padding:6px;
+      text-align:center;
+    }
+    .pos-cell .label {
+      font-family:var(--display); font-size:0.55rem; color:var(--muted);
+      letter-spacing:0.15em;
+    }
+    .pos-cell .val {
+      font-family:var(--display); font-size:1.1rem; font-weight:700; color:var(--text);
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">3D<span>PLACER</span> · PLACEMENT</div>
+  <div class="status-bar">
+    <span class="status-dot" id="serial-dot"></span>
+    <span id="serial-text">DISCONNECTED</span>
+    <span>|</span>
+    <a class="nav-link" href="/">← MONITOR</a>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- LEFT: CONFIG + UPLOAD -->
+  <div class="panel">
+    <div class="panel-title">▸ Setup</div>
+
+    <!-- Machine Position Config -->
+    <div class="section">
+      <h3>Fixed Positions (mm)</h3>
+
+      <label>PCB Origin (bottom-left corner)</label>
+      <div class="row">
+        <div><input type="number" step="0.01" id="pcb-x" placeholder="X"></div>
+        <div><input type="number" step="0.01" id="pcb-y" placeholder="Y"></div>
+        <div><input type="number" step="0.1" id="pcb-rot" placeholder="θ°"></div>
+      </div>
+
+      <label>Camera Position</label>
+      <div class="row">
+        <div><input type="number" step="0.01" id="cam-x" placeholder="X"></div>
+        <div><input type="number" step="0.01" id="cam-y" placeholder="Y"></div>
+      </div>
+
+      <label>Z Travel Height</label>
+      <div class="row">
+        <div><input type="number" step="0.1" id="z-travel" placeholder="mm"></div>
+      </div>
+
+      <button class="primary" id="save-config" style="width:100%; margin-top:8px;">SAVE CONFIG</button>
+    </div>
+
+    <!-- Upload .pos -->
+    <div class="section">
+      <h3>Upload .pos File</h3>
+      <label class="upload-zone" id="upload-zone">
+        <input type="file" id="pos-file" accept=".pos,.csv,.txt">
+        <div style="font-size:1.4rem; margin-bottom:6px;">⤴</div>
+        <div style="font-size:0.78rem;">Drop KiCad .pos file<br>or click to browse</div>
+      </label>
+      <div class="small" id="upload-status">No file loaded</div>
+    </div>
+
+    <!-- Jog -->
+    <div class="section">
+      <h3>Jog to Position</h3>
+      <div class="row">
+        <div><input type="number" step="0.1" id="jog-x" placeholder="X"></div>
+        <div><input type="number" step="0.1" id="jog-y" placeholder="Y"></div>
+        <div><input type="number" step="0.1" id="jog-z" placeholder="Z"></div>
+        <div><input type="number" step="1" id="jog-r" placeholder="R°"></div>
+      </div>
+      <button id="jog-btn" style="width:100%;">GO</button>
+      <div class="small">Use this to test feeder/camera coords before saving them.</div>
+    </div>
+
+    <!-- Send raw command -->
+    <div class="section">
+      <h3>Send Command</h3>
+      <div class="row" style="margin-bottom:6px;">
+        <input type="text" id="cmd-input" placeholder="e.g.  STATUS  or  MOVE X10  or  PICK">
+      </div>
+      <button id="cmd-send" style="width:100%;">SEND</button>
+      <div class="small">Commands: MOVE X Y Z R · PICK · PLACE · VAC ON/OFF · HOME · STATUS · STOP · SPEED &lt;n&gt;</div>
+    </div>
+  </div>
+
+  <!-- CENTER: PCB CANVAS & FEEDERS -->
+  <div class="canvas-wrap">
+    <div class="panel-title">▸ PCB Layout</div>
+
+    <div class="pos-readout">
+      <div class="pos-cell"><div class="label">X</div><div class="val" id="rd-x">—</div></div>
+      <div class="pos-cell"><div class="label">Y</div><div class="val" id="rd-y">—</div></div>
+      <div class="pos-cell"><div class="label">Z</div><div class="val" id="rd-z">—</div></div>
+      <div class="pos-cell"><div class="label">R°</div><div class="val" id="rd-r">—</div></div>
+    </div>
+
+    <canvas id="pcb-canvas"></canvas>
+
+    <div class="section" style="margin-top:14px;">
+      <h3>Feeder Mapping</h3>
+      <div id="feeder-list"></div>
+      <div class="small">Each unique component value needs a feeder XY position.</div>
+    </div>
+  </div>
+
+  <!-- RIGHT: PLACEMENT QUEUE -->
+  <div class="panel">
+    <div class="panel-title">▸ Placement Queue</div>
+
+    <div class="section">
+      <h3>Progress</h3>
+      <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+      <div class="progress-text">
+        <span id="progress-text">0 / 0</span>
+        <span id="state-text">IDLE</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Controls</h3>
+      <div class="controls-grid">
+        <button class="primary" id="btn-start">▶ START</button>
+        <button class="warning" id="btn-pause" disabled>⏸ PAUSE</button>
+        <button id="btn-skip" disabled>⏭ SKIP</button>
+        <button class="danger" id="btn-stop" disabled>⏹ STOP</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Components (<span id="comp-count">0</span>)</h3>
+      <div class="components-wrap">
+        <table>
+          <thead>
+            <tr><th>Ref</th><th>Val</th><th>X</th><th>Y</th><th>R°</th><th></th></tr>
+          </thead>
+          <tbody id="comp-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM: LOG -->
+  <div class="log-row">
+    <div class="panel-title">▸ Serial Log</div>
+    <div id="log-container"></div>
+  </div>
+</div>
+
+<script>
+// ─── STATE ────────────────────────────────────────────────────────────────────
+let config = null;
+let components = [];
+let placementState = { state:"idle", index:0, total:0, queue:[] };
+let machinePos = { x:0, y:0, z:0, r:0 };
+
+// ─── WEBSOCKET ────────────────────────────────────────────────────────────────
+const ws = new WebSocket(`ws://${location.host}`);
+
+ws.addEventListener("message", (e) => {
+  const msg = JSON.parse(e.data);
+
+  if (msg.type === "serial_status") {
+    document.getElementById("serial-dot").className = "status-dot" + (msg.connected ? " on" : "");
+    document.getElementById("serial-text").textContent = msg.connected ? "CONNECTED" : "DISCONNECTED";
+  }
+
+  if (msg.type === "config") {
+    config = msg.config;
+    fillConfigForm();
+    drawPCB();
+    renderFeeders();
+  }
+
+  if (msg.type === "components") {
+    components = msg.components;
+    renderComponents();
+    renderFeeders();
+    drawPCB();
+    document.getElementById("upload-status").textContent =
+      components.length ? `${components.length} components loaded` : "No file loaded";
+  }
+
+  if (msg.type === "placement_state") {
+    placementState = msg;
+    updatePlacementUI();
+  }
+
+  if (msg.type === "position") {
+    if (msg.x !== undefined) { machinePos.x = msg.x; document.getElementById("rd-x").textContent = msg.x.toFixed(1); }
+    if (msg.y !== undefined) { machinePos.y = msg.y; document.getElementById("rd-y").textContent = msg.y.toFixed(1); }
+    if (msg.z !== undefined) { machinePos.z = msg.z; document.getElementById("rd-z").textContent = msg.z.toFixed(1); }
+    if (msg.r !== undefined) { machinePos.r = msg.r; document.getElementById("rd-r").textContent = msg.r.toFixed(0); }
+    drawPCB();
+  }
+
+  if (msg.type === "log") appendLog(msg.message, msg.timestamp);
+});
+
+// ─── CONFIG FORM ──────────────────────────────────────────────────────────────
+function fillConfigForm() {
+  if (!config) return;
+  document.getElementById("pcb-x").value     = config.pcb.x;
+  document.getElementById("pcb-y").value     = config.pcb.y;
+  document.getElementById("pcb-rot").value   = config.pcb.rotation || 0;
+  document.getElementById("cam-x").value     = config.camera.x;
+  document.getElementById("cam-y").value     = config.camera.y;
+  document.getElementById("z-travel").value  = config.zTravel;
+}
+
+document.getElementById("save-config").addEventListener("click", async () => {
+  const newCfg = {
+    pcb: {
+      x: parseFloat(document.getElementById("pcb-x").value) || 0,
+      y: parseFloat(document.getElementById("pcb-y").value) || 0,
+      rotation: parseFloat(document.getElementById("pcb-rot").value) || 0,
+    },
+    camera: {
+      x: parseFloat(document.getElementById("cam-x").value) || 0,
+      y: parseFloat(document.getElementById("cam-y").value) || 0,
+    },
+    zTravel: parseFloat(document.getElementById("z-travel").value) || 10,
+    feeders: collectFeeders(),
+  };
+  await fetch("/api/config", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(newCfg) });
+});
+
+// ─── UPLOAD .POS ──────────────────────────────────────────────────────────────
+const uploadZone = document.getElementById("upload-zone");
+const posFile = document.getElementById("pos-file");
+
+posFile.addEventListener("change", (e) => {
+  const file = e.target.files[0]; if (file) handleFile(file);
+});
+uploadZone.addEventListener("dragover", (e) => { e.preventDefault(); uploadZone.classList.add("dragging"); });
+uploadZone.addEventListener("dragleave", () => uploadZone.classList.remove("dragging"));
+uploadZone.addEventListener("drop", (e) => {
+  e.preventDefault(); uploadZone.classList.remove("dragging");
+  const file = e.dataTransfer.files[0]; if (file) handleFile(file);
+});
+
+async function handleFile(file) {
+  const text = await file.text();
+  const res = await fetch("/api/upload-pos", {
+    method:"POST", headers:{"Content-Type":"text/plain"}, body:text
+  });
+  const data = await res.json();
+  if (data.error) { alert("Parse error: " + data.error); return; }
+}
+
+// ─── FEEDER MAPPING ───────────────────────────────────────────────────────────
+function renderFeeders() {
+  if (!config) return;
+  const uniqueVals = [...new Set(components.map(c => c.value))];
+  const list = document.getElementById("feeder-list");
+  list.innerHTML = "";
+
+  // Header
+  const header = document.createElement("div");
+  header.className = "feeder-row";
+  header.innerHTML = `<label style="margin:0;font-size:0.6rem;">VALUE</label>
+                      <label style="margin:0;font-size:0.6rem;">X (mm)</label>
+                      <label style="margin:0;font-size:0.6rem;">Y (mm)</label>
+                      <div></div>`;
+  list.appendChild(header);
+
+  // Show values from .pos + any extra in config
+  const allVals = new Set([...uniqueVals, ...Object.keys(config.feeders)]);
+  for (const val of allVals) {
+    const f = config.feeders[val] || { x:"", y:"" };
+    const inPos = uniqueVals.includes(val);
+    const row = document.createElement("div");
+    row.className = "feeder-row";
+    row.innerHTML = `
+      <div class="val" style="${inPos?"":"opacity:0.4"}">${val}</div>
+      <input type="number" step="0.01" data-val="${val}" data-axis="x" value="${f.x}">
+      <input type="number" step="0.01" data-val="${val}" data-axis="y" value="${f.y}">
+      <button class="del-btn" data-val="${val}">×</button>
+    `;
+    list.appendChild(row);
+  }
+
+  list.querySelectorAll("input").forEach(i => i.addEventListener("input", () => { renderComponents(); drawPCB(); }));
+  list.querySelectorAll(".del-btn").forEach(b => b.addEventListener("click", (e) => {
+    const v = e.target.dataset.val;
+    if (config.feeders[v]) delete config.feeders[v];
+    renderFeeders();
+  }));
+}
+
+function collectFeeders() {
+  const feeders = {};
+  document.querySelectorAll("#feeder-list input").forEach(input => {
+    const val = input.dataset.val;
+    const axis = input.dataset.axis;
+    if (!feeders[val]) feeders[val] = {};
+    const n = parseFloat(input.value);
+    if (!isNaN(n)) feeders[val][axis] = n;
+  });
+  // Only keep complete entries
+  const out = {};
+  for (const [k, v] of Object.entries(feeders)) {
+    if (v.x !== undefined && v.y !== undefined) out[k] = v;
+  }
+  return out;
+}
+
+// ─── COMPONENT TABLE ──────────────────────────────────────────────────────────
+function renderComponents() {
+  const tbody = document.getElementById("comp-tbody");
+  tbody.innerHTML = "";
+  document.getElementById("comp-count").textContent = components.length;
+
+  const feeders = config ? collectFeeders() : {};
+
+  components.forEach((c, i) => {
+    const queueItem = placementState.queue ? placementState.queue[i] : null;
+    const tr = document.createElement("tr");
+    let cls = "";
+    let badge = "";
+
+    if (queueItem) {
+      if (queueItem.done)    { cls = "done"; badge = '<span class="badge done">DONE</span>'; }
+      if (queueItem.current) { cls = "current"; badge = '<span class="badge ok">ACTIVE</span>'; }
+      if (queueItem.skipped) { cls = "skipped"; badge = '<span class="badge warn">NO FEEDER</span>'; }
+    } else if (!feeders[c.value]) {
+      cls = "no-feeder"; badge = '<span class="badge warn">NO FEEDER</span>';
+    }
+
+    tr.className = cls;
+    tr.innerHTML = `<td>${c.ref}</td><td>${c.value}</td>
+                    <td>${c.x.toFixed(1)}</td><td>${c.y.toFixed(1)}</td>
+                    <td>${c.rotation}</td><td>${badge}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+// ─── PCB CANVAS ───────────────────────────────────────────────────────────────
+const canvas = document.getElementById("pcb-canvas");
+const ctx = canvas.getContext("2d");
+
+function resize() {
+  canvas.width  = canvas.clientWidth;
+  canvas.height = canvas.clientHeight;
+  drawPCB();
+}
+window.addEventListener("resize", resize);
+setTimeout(resize, 100);
+
+function drawPCB() {
+  if (!config) return;
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0,0,W,H);
+
+  // Compute world bounds from PCB + components + feeders + camera
+  let xs = [config.pcb.x, config.camera.x];
+  let ys = [config.pcb.y, config.camera.y];
+  components.forEach(c => {
+    xs.push(config.pcb.x + c.x);
+    ys.push(config.pcb.y + c.y);
+  });
+  Object.values(config.feeders).forEach(f => { xs.push(f.x); ys.push(f.y); });
+  xs.push(0); ys.push(0); xs.push(250); ys.push(250);
+
+  const minX = Math.min(...xs) - 10, maxX = Math.max(...xs) + 10;
+  const minY = Math.min(...ys) - 10, maxY = Math.max(...ys) + 10;
+
+  const scale = Math.min((W-40)/(maxX-minX), (H-40)/(maxY-minY));
+  const offX = 20 - minX*scale;
+  const offY = 20 + maxY*scale;  // flip Y
+
+  const wx = (x) => x*scale + offX;
+  const wy = (y) => offY - y*scale;
+
+  // Grid
+  ctx.strokeStyle = "rgba(30,45,61,0.5)";
+  ctx.lineWidth = 1;
+  for (let g = Math.floor(minX/20)*20; g <= maxX; g += 20) {
+    ctx.beginPath(); ctx.moveTo(wx(g), wy(minY)); ctx.lineTo(wx(g), wy(maxY)); ctx.stroke();
+  }
+  for (let g = Math.floor(minY/20)*20; g <= maxY; g += 20) {
+    ctx.beginPath(); ctx.moveTo(wx(minX), wy(g)); ctx.lineTo(wx(maxX), wy(g)); ctx.stroke();
+  }
+
+  // PCB outline (rough bounding box of components)
+  if (components.length) {
+    const cxs = components.map(c => c.x), cys = components.map(c => c.y);
+    const px = config.pcb.x, py = config.pcb.y;
+    const w  = Math.max(...cxs) - Math.min(...cxs) + 20;
+    const h  = Math.max(...cys) - Math.min(...cys) + 20;
+    ctx.strokeStyle = "rgba(0,255,159,0.5)";
+    ctx.fillStyle = "rgba(0,255,159,0.05)";
+    ctx.lineWidth = 1.5;
+    ctx.fillRect(wx(px - 10), wy(py + h - 10), w*scale, h*scale);
+    ctx.strokeRect(wx(px - 10), wy(py + h - 10), w*scale, h*scale);
+    ctx.fillStyle = "rgba(0,255,159,0.7)";
+    ctx.font = "10px 'Share Tech Mono'";
+    ctx.fillText("PCB", wx(px - 8), wy(py + h - 12));
+  }
+
+  // Camera marker
+  ctx.beginPath();
+  ctx.arc(wx(config.camera.x), wy(config.camera.y), 8, 0, Math.PI*2);
+  ctx.strokeStyle = "var(--accent2)"; ctx.strokeStyle = "#ff6b35";
+  ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = "rgba(255,107,53,0.2)"; ctx.fill();
+  ctx.fillStyle = "#ff6b35"; ctx.font = "10px 'Share Tech Mono'";
+  ctx.fillText("CAM", wx(config.camera.x)+10, wy(config.camera.y)-6);
+
+  // Feeders
+  const feedersNow = collectFeeders();
+  for (const [val, f] of Object.entries(feedersNow)) {
+    ctx.fillStyle = "rgba(255,216,59,0.7)";
+    ctx.fillRect(wx(f.x)-4, wy(f.y)-4, 8, 8);
+    ctx.fillStyle = "#ffd83b"; ctx.font = "9px 'Share Tech Mono'";
+    ctx.fillText(val, wx(f.x)+6, wy(f.y)+3);
+  }
+
+  // Components on PCB
+  components.forEach((c, i) => {
+    const queueItem = placementState.queue ? placementState.queue[i] : null;
+    const cx = config.pcb.x + c.x;
+    const cy = config.pcb.y + c.y;
+    let color = "rgba(0,212,255,0.7)";
+    if (queueItem) {
+      if (queueItem.done)    color = "rgba(74,98,120,0.5)";
+      if (queueItem.current) color = "#00ff9f";
+      if (queueItem.skipped) color = "rgba(255,216,59,0.5)";
+    } else if (!feedersNow[c.value]) {
+      color = "rgba(255,216,59,0.5)";
+    }
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(wx(cx), wy(cy), queueItem && queueItem.current ? 5 : 2.5, 0, Math.PI*2);
+    ctx.fill();
+  });
+
+  // Machine position cursor
+  ctx.strokeStyle = "rgba(0,212,255,0.8)";
+  ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(wx(machinePos.x), 0); ctx.lineTo(wx(machinePos.x), H); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, wy(machinePos.y)); ctx.lineTo(W, wy(machinePos.y)); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.arc(wx(machinePos.x), wy(machinePos.y), 6, 0, Math.PI*2);
+  ctx.fillStyle = "#00d4ff"; ctx.shadowColor = "#00d4ff"; ctx.shadowBlur = 8; ctx.fill();
+  ctx.shadowBlur = 0;
+}
+
+// ─── PLACEMENT CONTROLS ───────────────────────────────────────────────────────
+document.getElementById("btn-start").addEventListener("click", async () => {
+  // Save config first (in case user changed feeders without clicking save)
+  await fetch("/api/config", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({ feeders: collectFeeders() })
+  });
+  await fetch("/api/placement/start", { method:"POST" });
+});
+document.getElementById("btn-pause").addEventListener("click", async () => {
+  const action = placementState.state === "paused" ? "resume" : "pause";
+  await fetch(`/api/placement/${action}`, { method:"POST" });
+});
+document.getElementById("btn-skip").addEventListener("click", () => fetch("/api/placement/skip", { method:"POST" }));
+document.getElementById("btn-stop").addEventListener("click", () => fetch("/api/placement/stop", { method:"POST" }));
+
+function updatePlacementUI() {
+  const total = placementState.total || components.length;
+  const pct = total ? (placementState.index / total) * 100 : 0;
+  document.getElementById("progress").style.width = pct + "%";
+  document.getElementById("progress-text").textContent = `${placementState.index} / ${total}`;
+  document.getElementById("state-text").textContent = placementState.state.toUpperCase();
+
+  const running = placementState.state === "running";
+  const paused  = placementState.state === "paused";
+  document.getElementById("btn-start").disabled = running || paused;
+  document.getElementById("btn-pause").disabled = !(running || paused);
+  document.getElementById("btn-pause").textContent = paused ? "▶ RESUME" : "⏸ PAUSE";
+  document.getElementById("btn-skip").disabled = !(running || paused);
+  document.getElementById("btn-stop").disabled = !(running || paused);
+
+  renderComponents();
+  drawPCB();
+}
+
+// ─── JOG ──────────────────────────────────────────────────────────────────────
+document.getElementById("jog-btn").addEventListener("click", async () => {
+  const body = {};
+  ["x","y","z","r"].forEach(a => {
+    const v = parseFloat(document.getElementById(`jog-${a}`).value);
+    if (!isNaN(v)) body[a] = v;
+  });
+  if (!Object.keys(body).length) return;
+  await fetch("/api/jog", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body) });
+});
+
+// ─── SEND COMMAND ─────────────────────────────────────────────────────────────
+function sendCommand() {
+  const input = document.getElementById("cmd-input");
+  const cmd = input.value.trim();
+  if (!cmd) return;
+  ws.send(JSON.stringify({ type: "command", command: cmd }));
+  appendLog(`> ${cmd}`, new Date().toISOString());
+  input.value = "";
+}
+document.getElementById("cmd-send").addEventListener("click", sendCommand);
+document.getElementById("cmd-input").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") sendCommand();
+});
+
+// ─── LOG ──────────────────────────────────────────────────────────────────────
+function appendLog(msg, ts) {
+  const c = document.getElementById("log-container");
+  const t = ts ? new Date(ts).toLocaleTimeString("en-GB") : "--:--:--";
+  const d = document.createElement("div");
+  d.className = "log-entry";
+  d.innerHTML = `<span class="ts">${t}</span><span>${msg}</span>`;
+  c.appendChild(d); c.scrollTop = c.scrollHeight;
+  while (c.children.length > 200) c.removeChild(c.firstChild);
+}
+
+</script>
+</body>
+</html>
