@@ -53,7 +53,7 @@ CENTER_RADIUS   = 280     # px — nozzle search zone radius
 ANGLE_TOLERANCE = 5.0     # degrees — delta ≤ this → PLACE
 
 # Pad blob detector (replaces Hough circles)
-PAD_MIN_AREA    = 8       # px² — ignore tiny noise blobs
+PAD_MIN_AREA    = 25      # px² — ignore tiny noise blobs (ring light reflections)
 PAD_MAX_AREA    = 4000    # px² — ignore large body reflections
 
 # Body contour size limits
@@ -61,7 +61,7 @@ BODY_MIN_AREA   = 80      # px² — smallest valid 0805 at close range
 BODY_MAX_AREA   = 200_000 # px²
 
 # LED cathode-band detector
-LED_BODY_ASYM_THRESH = 15  # intensity units — min left/right brightness difference to flag LED
+LED_BODY_ASYM_THRESH = 8   # intensity units — min left/right brightness difference to flag LED
 
 
 # ── Data classes ──────────────────────────────────────────────────────────────
@@ -356,7 +356,7 @@ class VisionPipeline:
         Uses the 80th percentile as a lower bound so it adapts to lighting.
         Manual thresh shifts this up by 40 if set.
         """
-        base = int(np.percentile(blur, 80))
+        base = int(np.percentile(blur, 88))
         thresh = min((self.manual_thresh + 40) if self.manual_thresh > 0 else base, 254)
         _, mask = cv2.threshold(blur, thresh, 255, cv2.THRESH_BINARY)
         k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3,3))
@@ -436,6 +436,14 @@ class VisionPipeline:
                 continue
             cx, cy = centroids[i]
             result.append((int(cx) + x_off, int(cy) + y_off, area))
+
+        # Drop spurious small blobs (lens reflections, LED epoxy spots).
+        # Real pads of the same footprint are always similar in area;
+        # keep only those >= 30% of the largest found.
+        if result:
+            max_area = max(p[2] for p in result)
+            result = [p for p in result if p[2] >= max_area * 0.20]
+
         return result
 
     def _find_pads(self, pad_mask_roi: np.ndarray,
@@ -513,22 +521,6 @@ class VisionPipeline:
                     f"pad count {detected.pad_count} outside [{min_pads},{max_pads}] "
                     f"for footprint '{footprint}'")
 
-        if detected.height > 0:
-            ar = detected.width / detected.height
-        else:
-            ar = 1.0
-        if env.aspect_ratio_min > 0 and ar < env.aspect_ratio_min:
-            return (False,
-                    f"aspect ratio {ar:.2f} < {env.aspect_ratio_min:.2f} "
-                    f"for footprint '{footprint}'")
-
-        area_px = detected.width * detected.height
-        min_area, max_area = env.body_area_range
-        if not (min_area <= area_px <= max_area):
-            return (False,
-                    f"body area {area_px}px² outside [{min_area},{max_area}] "
-                    f"for footprint '{footprint}'")
-
         return True, "ok"
 
     # ── Stage 5b — Color-based body classification ───────────────────────────
@@ -539,10 +531,10 @@ class VisionPipeline:
 
         Observed color signatures (bottom-view camera):
           blue_body   — ceramic capacitor (CC0805): whole body is blue/teal
-          teal_marker — LED (KPT-2012SURCK): dark body with small teal triangle
+          teal_marker — LED (KPT-2012SURCK): dark body with small green/teal triangle cathode marker
           dark_body   — resistor or IC: uniformly black body
 
-        OpenCV HSV hue 0-179; hue 75-130 covers green→teal→blue.
+        OpenCV HSV hue 0-179; hue 50-130 covers green→teal→blue.
         """
         if bgr is None or contour is None:
             return 'unknown'
@@ -554,16 +546,19 @@ class VisionPipeline:
         if len(body_px) < 20:
             return 'unknown'
 
-        colored = (
-            (body_px[:, 0] >= 75) & (body_px[:, 0] <= 130) &  # teal→blue hue
-            (body_px[:, 1] > 60) &                              # must be saturated
-            (body_px[:, 2] > 25) & (body_px[:, 2] < 240)       # visible but not near-white (pads/reflections)
-        )
-        ratio = float(np.sum(colored)) / len(body_px)
+        sat_vis = (body_px[:, 1] > 60) & (body_px[:, 2] > 25) & (body_px[:, 2] < 240)
+        # H 100-130 = cyan/blue  → ceramic cap body (H≈110-125)
+        # H  50-99  = green/teal → LED cathode triangle (H≈60-80); white LED
+        #             body pixels are excluded by sat_vis (S≈0 on white)
+        colored_blue  = sat_vis & (body_px[:, 0] >= 100) & (body_px[:, 0] <= 130)
+        colored_green = sat_vis & (body_px[:, 0] >= 50)  & (body_px[:, 0] <= 99)
+
+        blue_ratio  = float(np.sum(colored_blue))  / len(body_px)
+        green_ratio = float(np.sum(colored_green)) / len(body_px)
 
         self._last_color_hint = (
-            'blue_body'   if ratio > 0.25 else
-            'teal_marker' if ratio > 0.04 else
+            'blue_body'   if blue_ratio  > 0.25 else
+            'teal_marker' if green_ratio > 0.01 else
             'dark_body'
         )
         return self._last_color_hint
@@ -599,9 +594,11 @@ class VisionPipeline:
         v_rot = cv2.warpAffine(gray, M, (gray.shape[1], gray.shape[0]),
                                flags=cv2.INTER_LINEAR)
 
-        # Central strip: middle 60% of body length (skip pad-reflection zones at
-        # each end), middle 40% of height (avoid edge fringing)
-        pad_inset = max(1, int(w * 0.20))
+        # Central strip: middle 80% of body length (skip only the bright pad zones
+        # at each end — 10% inset), middle 40% of height (avoid edge fringing).
+        # The cathode marker (triangle/band) is printed close to one end, so a
+        # large inset misses it entirely.
+        pad_inset = max(1, int(w * 0.10))
         half_h    = max(1, int(h * 0.20))
         x1 = max(0, int(cx) - int(w // 2) + pad_inset)
         x2 = min(v_rot.shape[1], int(cx) + int(w // 2) - pad_inset)
@@ -677,6 +674,55 @@ class VisionPipeline:
 
         return diff < 0          # darker near p1 → cathode band at p1
 
+    def _cathode_from_green_marker(self, bgr: np.ndarray, contour: np.ndarray,
+                                   p0: tuple, p1: tuple) -> Optional[bool]:
+        """
+        Locate the green cathode triangle within the LED body and determine
+        which pad it is closest to.
+
+        The KPT-2012SURCK has a green triangle printed near the cathode pad.
+        We find the centroid of green pixels (H 50-99) inside the body contour
+        and compare its distance to p0 vs p1.
+
+        Returns True  if cathode is at p1,
+                False if cathode is at p0,
+                None  if marker not found or position is ambiguous.
+        """
+        if bgr is None or contour is None:
+            return None
+
+        mask = np.zeros(bgr.shape[:2], dtype=np.uint8)
+        cv2.drawContours(mask, [contour], -1, 255, -1)
+
+        hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
+        green = (
+            (hsv[:, :, 0] >= 50) & (hsv[:, :, 0] <= 99) &
+            (hsv[:, :, 1] > 60) &
+            (hsv[:, :, 2] > 25) & (hsv[:, :, 2] < 240)
+        )
+        body_px_count = int(np.count_nonzero(mask))
+        pts = np.argwhere(green & (mask > 0))   # (y, x)
+        # Require enough green pixels AND at least 2% of body area —
+        # avoids false triggers from polarity stripes on electrolytic caps.
+        if len(pts) < 15 or (body_px_count > 0 and len(pts) / body_px_count < 0.02):
+            return None
+
+        gx = float(np.mean(pts[:, 1]))
+        gy = float(np.mean(pts[:, 0]))
+
+        pad_dist = float(np.hypot(p1[0] - p0[0], p1[1] - p0[1]))
+        if pad_dist == 0:
+            return None
+
+        d0 = float(np.hypot(gx - p0[0], gy - p0[1]))
+        d1 = float(np.hypot(gx - p1[0], gy - p1[1]))
+
+        # Marker centroid must be clearly on one side (> 10% of pad spacing)
+        if abs(d0 - d1) < pad_dist * 0.10:
+            return None
+
+        return d1 < d0   # True → green marker closer to p1 → cathode at p1
+
     # ── Stage 6 + 7 — classify and orient ────────────────────────────────────
 
     def _classify_and_orient(self, contour,
@@ -698,7 +744,24 @@ class VisionPipeline:
         x1 = max(0, int(cx) - margin);  y1 = max(0, int(cy) - margin)
         x2 = min(gray.shape[1], int(cx) + margin)
         y2 = min(gray.shape[0], int(cy) + margin)
-        roi_pad   = pad_mask[y1:y2, x1:x2]
+        # Local pad mask: threshold within the component ROI so the detection
+        # adapts to whatever brightness the pads actually have (gold, silver, tin).
+        # The pads are always the brightest things in the local area regardless
+        # of absolute brightness — a global percentile can miss silver pads.
+        pad_search = np.zeros_like(pad_mask)
+        dil_k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (25, 25))
+        cv2.drawContours(pad_search, [contour], -1, 255, -1)
+        pad_search = cv2.dilate(pad_search, dil_k, iterations=1)
+
+        local_gray = gray[y1:y2, x1:x2]
+        if local_gray.size > 0:
+            local_thresh = int(np.percentile(local_gray, 85))
+            _, local_pad = cv2.threshold(local_gray, local_thresh, 255, cv2.THRESH_BINARY)
+            k3 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+            local_pad = cv2.morphologyEx(local_pad, cv2.MORPH_OPEN, k3, iterations=1)
+            roi_pad = cv2.bitwise_and(local_pad, pad_search[y1:y2, x1:x2])
+        else:
+            roi_pad = cv2.bitwise_and(pad_mask, pad_search)[y1:y2, x1:x2]
 
         pads_raw  = self._find_pads_raw(roi_pad, x1, y1)
         pads      = [(x, y) for x, y, _ in pads_raw]
@@ -706,6 +769,15 @@ class VisionPipeline:
 
         # ── Color analysis (original BGR frame, before grayscale processing) ──
         color_hint = self._classify_by_color(bgr, contour)
+
+        # ── Cathode pre-computation for 2-pad components ──────────────────────
+        # A non-None result means a brightness asymmetry (polarity marker) is
+        # visible between the two pad ends → component is a LED, not a passive.
+        # Resistors and capacitors have symmetric ends → returns None.
+        # Computing this before classification lets us use it as a LED signal
+        # without calling _cathode_at_p1 a second time in the orient block.
+        _cathode_pre = (self._cathode_at_p1(gray, pads[0], pads[1])
+                        if nb_pads == 2 else None)
 
         # ── Classify ──────────────────────────────────────────────────────────
         comp_type, confidence = "INCONNU", 0.35
@@ -717,22 +789,25 @@ class VisionPipeline:
         elif nb_pads >= 4:
             comp_type, confidence = "CONNECTOR", 0.70   # USB 5-pin or similar
         elif nb_pads == 2:
-            if circularity > 0.65:
-                comp_type, confidence = "ELCAP", 0.75   # round electrolytic
+            if circularity > 0.80:
+                # True round body (electrolytic cylinder seen from below ≈ 1.0,
+                # 0805 rectangle never exceeds ~0.78 even with blurring)
+                comp_type, confidence = "ELCAP", 0.75
             elif color_hint == 'blue_body':
-                comp_type, confidence = "CONDENSATEUR", 0.88   # whole body is blue → cap
-            elif color_hint == 'teal_marker':
-                comp_type, confidence = "LED", 0.80            # teal triangle → LED
+                comp_type, confidence = "CONDENSATEUR", 0.88
+            elif color_hint == 'teal_marker' or _cathode_pre is not None:
+                comp_type, confidence = "LED", 0.82
             else:
+                # Last resort: whole-body brightness asymmetry
                 comp_type, confidence = self._led_or_passive(contour, gray)
         elif nb_pads in (0, 1):
             # Pads not resolved — use color first, then body shape
             if color_hint == 'blue_body':
-                comp_type, confidence = "CONDENSATEUR", 0.72   # blue body → cap even without pads
+                comp_type, confidence = "CONDENSATEUR", 0.72
             elif color_hint == 'teal_marker':
-                comp_type, confidence = "LED", 0.65            # teal marker → LED (fixes ELCAP false positive)
-            elif circularity > 0.65:
-                comp_type, confidence = "ELCAP", 0.55          # round dark body
+                comp_type, confidence = "LED", 0.65
+            elif circularity > 0.80:
+                comp_type, confidence = "ELCAP", 0.55
             elif ratio > 1.5:
                 comp_type, confidence = "SMD_PASSIVE", 0.45
             else:
@@ -748,20 +823,19 @@ class VisionPipeline:
             raw    = float(np.degrees(np.arctan2(dy, dx)))
 
             if comp_type == "LED":
-                # Resolve 180° ambiguity using the cathode marker (band / arrow / T-mark)
-                # visible on the bottom of the LED body.
-                # Result angle points from anode (p0) toward cathode (p1) when
-                # _cathode_at_p1 returns True; flipped by 180° when it returns False.
-                # Returns None when the marker is not visible → falls back to axis only.
-                cathode_tip = self._cathode_at_p1(gray, p0, p1)
+                # Primary: green triangle centroid — more reliable than brightness.
+                # Fallback: brightness asymmetry near pad ends (_cathode_pre).
+                cathode_tip = self._cathode_from_green_marker(bgr, contour, p0, p1)
                 if cathode_tip is None:
-                    angle        = float(raw % 180)   # can't resolve direction
+                    cathode_tip = _cathode_pre
+                if cathode_tip is None:
+                    angle        = float(raw % 180)
                     angle_method = "pads"
                 else:
                     if not cathode_tip:
                         raw += 180                    # cathode is at p0 side
                     angle        = float(raw % 360)
-                    angle_method = "pads_led"         # directional — cathode resolved
+                    angle_method = "pads_led_green"
             else:
                 angle        = float(raw % 180)
                 angle_method = "pads"
