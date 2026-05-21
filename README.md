@@ -3,11 +3,11 @@ A pick-and-place machine
 
 
 ## Contributors
-- [@YahyaBoussaadia] https://github.com/YahyaBoussaadia
-- [@alaae] https://github.com/alaaae
-- [@khlilinfo] https://github.com/khlilinfo
-- [@zeinebsellami] https://github.com/zeinebsellami
-- [@yosrhall] https://github.com/yosrhall
+- [@YahyaBoussaadia](https://github.com/YahyaBoussaadia)
+- [@alaae](https://github.com/alaae)
+- [@khlilinfo](https://github.com/khlilinfo)
+- [@zeinebselami](https://github.com/zeinebselami)
+- [@yosrhall](https://github.com/yosrhall)
 
 ## Electronics Assembly
 
