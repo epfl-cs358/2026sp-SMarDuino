@@ -105,13 +105,28 @@ Comprehensive list of elements we used in our project along with needed equipmen
 
 ## 🏗 Hardware Architecture
 
-### 1. Mechanical Conversion
-We replaced the Prusa extruder with a custom-designed **X-Carriage**. 
-*   **Grabber Mechanism**: A vacuum nozzle mounted on the head.
-*   **Feeding System**: A servo-driven articulated arm that advances component tape by exactly one position per cycle.
+
+#### 1. Mechanical Conversion
+We replaced the standard Prusa extruder with a custom-engineered **X-Carriage** designed specifically for Pick and Place operations. This modular head integrates both the component handling and the feeding trigger.
+
+*   **Vacuum Grabber Mechanism**: 
+    *   Features a high-precision **vacuum nozzle** mounted on a spring-loaded Z-axis.
+    *   Integrated with a **Y-junction pneumatic circuit** to allow for both picking and release.
+
+#### 2. Passive Tape Feeding System
+Inspired by the **LumenPnP** open-source community, our feeding system is **fully mechanical and passive**, significantly reducing the machine's weight and electronic footprint.
+
+*   **Nozzle-Driven Advance**: 
+    *   The head moves to the feeder, and the vacuum nozzle descends into the tape's **sprocket holes**.
+    *   The machine performs a precise linear move to pull the tape forward, eliminating the need for individual stepper motors or servos for each feeder.
+*   **Automatic Synchronized Peeling**: 
+    *   This linear pull drives a series of **3D-printed internal gears**.
+    *   The gears are calibrated with a specific ratio to peel back the protective film automatically as the tape advances, ensuring the components are always exposed at the exact pick-up location.
+*   **Design Efficiency**: 
+    *   **Scalable**: New feeders can be added to the base plate without needing additional motor drivers or wiring.
 
 ### 2. Automatic Nozzle Changer
-To handle different SMD sizes (from 0402 to ICs), the machine features a **3D-printed rack**. The software automatically docks the current nozzle and picks a new one without human intervention.
+To handle different SMD sizes, the machine features a **3D-printed rack**. The software automatically docks the current nozzle and picks a new one without human intervention.
 
 ---
 
