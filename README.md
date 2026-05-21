@@ -2,6 +2,13 @@
 A pick-and-place machine
 
 
+## Contributors
+- @YahyaBoussaadia
+- @alaae
+- @khlilinfo
+- @zeinebsellami
+- @yosrhall
+
 ## Electronics Assembly
 
 The final electronic architecture of the project has been assembled.
