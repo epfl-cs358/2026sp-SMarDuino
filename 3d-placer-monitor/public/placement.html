@@ -140,8 +140,8 @@
 
     /* Feeder mapping */
     .feeder-row {
-      display:grid; grid-template-columns: 60px 1fr 1fr 26px;
-      gap:6px; margin-bottom:4px; align-items:center;
+      display:grid; grid-template-columns: 60px 1fr 1fr 1fr 1fr 32px 32px 26px;
+      gap:4px; margin-bottom:4px; align-items:center;
     }
     .feeder-row .val { font-size:0.74rem; color:var(--accent); font-weight:700; }
     .feeder-row input { padding:4px 7px; font-size:0.72rem; }
@@ -150,6 +150,66 @@
       padding:2px 0; font-size:0.7rem;
     }
     .feeder-row .del-btn:hover { border-color:var(--red); color:var(--red); }
+
+    /* Capture buttons (inline, small) */
+    .cap-btn {
+      display:inline-block; background:transparent; border:1px solid var(--accent);
+      color:var(--accent); font-family:var(--mono); font-size:0.6rem;
+      padding:1px 6px; cursor:pointer; letter-spacing:0.08em;
+      margin-left:6px; vertical-align:middle; text-transform:none;
+      font-weight:normal;
+    }
+    .cap-btn:hover { background:var(--accent); color:var(--bg); }
+    .cap-btn.flash { animation: flash-cap 0.5s; }
+    @keyframes flash-cap {
+      0% { background:var(--green); color:var(--bg); }
+      100% { background:transparent; color:var(--accent); }
+    }
+    /* Test-advance button — yellow so it stands out from the cyan capture button */
+    .cap-btn.test-advance {
+      border-color: var(--yellow); color: var(--yellow);
+    }
+    .cap-btn.test-advance:hover { background: var(--yellow); color: var(--bg); }
+
+    /* Manual placement rows — two-line layout for readability in narrow panel */
+    .manual-card {
+      background:var(--bg3); border:1px solid var(--border);
+      padding:6px 8px; margin-bottom:6px; border-radius:2px;
+    }
+    .manual-card-top {
+      display:grid; grid-template-columns: 26px 1fr 1fr 22px 22px 22px;
+      gap:4px; align-items:center; margin-bottom:4px;
+    }
+    .manual-card-bottom {
+      display:grid; grid-template-columns: 1fr 1fr 1fr 1fr;
+      gap:4px; align-items:center;
+    }
+    .manual-card input, .manual-card select {
+      padding:4px 6px; font-size:0.7rem; width:100%; box-sizing:border-box;
+      background:var(--bg2); border:1px solid var(--border); color:var(--text);
+      font-family:var(--mono); outline:none;
+    }
+    .manual-card input:focus, .manual-card select:focus { border-color:var(--accent); }
+    .manual-card select { background:var(--bg2); }
+    .manual-card .ref-input { font-weight:700; color:var(--accent); }
+    .manual-card .row-num {
+      font-size:0.65rem; color:var(--muted); text-align:center;
+      font-family:var(--display); letter-spacing:0.05em;
+    }
+    .manual-card .axis-label {
+      font-size:0.55rem; color:var(--muted); letter-spacing:0.1em;
+      font-family:var(--display); margin-bottom:2px; text-align:center;
+    }
+    .manual-card .axis-wrap { display:flex; flex-direction:column; }
+    .manual-card .mini-btn {
+      background:transparent; border:1px solid var(--border); color:var(--muted);
+      padding:3px 0; font-size:0.7rem; cursor:pointer; font-family:var(--mono);
+      height:24px;
+    }
+    .manual-card .mini-btn:hover { border-color:var(--accent); color:var(--accent); }
+    .manual-card .mini-btn.del:hover { border-color:var(--red); color:var(--red); }
+    .manual-card .mini-btn.cap-manual { border-color:var(--accent); color:var(--accent); }
+    .manual-card .mini-btn.cap-manual:hover { background:var(--accent); color:var(--bg); }
 
     /* Placement controls */
     .controls-grid {
@@ -220,24 +280,45 @@
 
     <!-- Machine Position Config -->
     <div class="section">
-      <h3>Fixed Positions (mm)</h3>
+      <h3>Fixed Positions (steps)</h3>
 
-      <label>PCB Origin (bottom-left corner)</label>
+      <label>PCB Origin (corner where part touches the board) <button id="cap-pcb" class="cap-btn">⊕ CAPTURE</button></label>
       <div class="row">
-        <div><input type="number" step="0.01" id="pcb-x" placeholder="X"></div>
-        <div><input type="number" step="0.01" id="pcb-y" placeholder="Y"></div>
+        <div><input type="number" step="1" id="pcb-x" placeholder="X"></div>
+        <div><input type="number" step="1" id="pcb-y" placeholder="Y"></div>
+        <div><input type="number" step="1" id="pcb-z" placeholder="Z"></div>
         <div><input type="number" step="0.1" id="pcb-rot" placeholder="θ°"></div>
       </div>
 
-      <label>Camera Position</label>
+      <label>Camera Position (X, Y, focal Z) <button id="cap-cam" class="cap-btn">⊕ CAPTURE</button></label>
       <div class="row">
-        <div><input type="number" step="0.01" id="cam-x" placeholder="X"></div>
-        <div><input type="number" step="0.01" id="cam-y" placeholder="Y"></div>
+        <div><input type="number" step="1" id="cam-x" placeholder="X"></div>
+        <div><input type="number" step="1" id="cam-y" placeholder="Y"></div>
+        <div><input type="number" step="1" id="cam-z" placeholder="Z"></div>
       </div>
 
-      <label>Z Travel Height</label>
+      <label>Z Travel (safe flying height) <button id="cap-z-travel" class="cap-btn">⊕ CAPTURE</button></label>
       <div class="row">
-        <div><input type="number" step="0.1" id="z-travel" placeholder="mm"></div>
+        <div><input type="number" step="1" id="z-travel" placeholder="Z"></div>
+      </div>
+
+      <label>Machine workspace (step range per axis)</label>
+      <div class="row">
+        <div><label style="font-size:0.6rem">X min</label><input type="number" step="1" id="ws-xmin" placeholder="-22888"></div>
+        <div><label style="font-size:0.6rem">X max</label><input type="number" step="1" id="ws-xmax" placeholder="0"></div>
+      </div>
+      <div class="row">
+        <div><label style="font-size:0.6rem">Y min</label><input type="number" step="1" id="ws-ymin" placeholder="0"></div>
+        <div><label style="font-size:0.6rem">Y max</label><input type="number" step="1" id="ws-ymax" placeholder="17000"></div>
+      </div>
+      <div class="row">
+        <div><label style="font-size:0.6rem">Z min</label><input type="number" step="1" id="ws-zmin" placeholder="0"></div>
+        <div><label style="font-size:0.6rem">Z max</label><input type="number" step="1" id="ws-zmax" placeholder="58000"></div>
+      </div>
+
+      <label>Steps per mm (for .pos file conversion)</label>
+      <div class="row">
+        <div><input type="number" step="0.01" id="steps-per-mm" placeholder="80"></div>
       </div>
 
       <button class="primary" id="save-config" style="width:100%; margin-top:8px;">SAVE CONFIG</button>
@@ -256,25 +337,28 @@
 
     <!-- Jog -->
     <div class="section">
-      <h3>Jog to Position</h3>
+      <h3>Jog to Position (steps)</h3>
       <div class="row">
-        <div><input type="number" step="0.1" id="jog-x" placeholder="X"></div>
-        <div><input type="number" step="0.1" id="jog-y" placeholder="Y"></div>
-        <div><input type="number" step="0.1" id="jog-z" placeholder="Z"></div>
-        <div><input type="number" step="1" id="jog-r" placeholder="R°"></div>
+        <div><input type="number" step="1" id="jog-x" placeholder="X"></div>
+        <div><input type="number" step="1" id="jog-y" placeholder="Y"></div>
+        <div><input type="number" step="1" id="jog-z" placeholder="Z"></div>
+        <div><input type="number" step="1" id="jog-r" placeholder="R"></div>
       </div>
-      <button id="jog-btn" style="width:100%;">GO</button>
-      <div class="small">Use this to test feeder/camera coords before saving them.</div>
+      <div class="row">
+        <div><button id="jog-btn-safe" class="primary" style="width:100%;">SAFE GO</button></div>
+        <div><button id="jog-btn" style="width:100%;">GO (direct)</button></div>
+      </div>
+      <div class="small"><strong>SAFE GO</strong>: lift Z first → move XY → lower to target Z. Prevents crashes.<br><strong>GO (direct)</strong>: all axes move at once (faster, but watch out).</div>
     </div>
 
     <!-- Send raw command -->
     <div class="section">
       <h3>Send Command</h3>
       <div class="row" style="margin-bottom:6px;">
-        <input type="text" id="cmd-input" placeholder="e.g.  STATUS  or  MOVE X10  or  PICK">
+        <input type="text" id="cmd-input" placeholder="e.g.  MOVE X1000 Y500  or  HOME  or  PICK">
       </div>
       <button id="cmd-send" style="width:100%;">SEND</button>
-      <div class="small">Commands: MOVE X Y Z R · PICK · PLACE · VAC ON/OFF · HOME · STATUS · STOP · SPEED &lt;n&gt;</div>
+      <div class="small">Commands: MOVE X Y Z R (abs) · STEP X Y Z R (rel) · ADVANCE Y&lt;pitch&gt; Z&lt;travelZ&gt; · PICK · PLACE · VAC ON/OFF · HOME · STATUS · STOP</div>
     </div>
   </div>
 
@@ -332,6 +416,29 @@
         </table>
       </div>
     </div>
+
+    <!-- ─── TEST PLACEMENT ─────────────────────────────────────── -->
+    <div class="section" style="border-top:1px solid var(--border); padding-top:14px;">
+      <h3 style="color:var(--yellow);">🧪 Test Placement</h3>
+      <div class="small" style="margin-bottom:8px;">
+        Define components manually with their PCB coordinates (in steps). The test runs:
+        pick from feeder → travel → drop at PCB coord. Same logic as the .pos workflow.
+      </div>
+
+      <div id="manual-list"></div>
+
+      <div class="row" style="margin-top:8px;">
+        <button id="manual-add" style="flex:1;">+ ADD ROW</button>
+        <button id="manual-clear" class="danger" style="flex:0 0 80px;">CLEAR</button>
+      </div>
+
+      <button class="primary" id="btn-start-test" style="width:100%; margin-top:8px; background:var(--yellow); color:var(--bg); border-color:var(--yellow);">
+        ▶ START TEST
+      </button>
+      <div class="small" style="margin-top:4px;">
+        Uses the same pause/skip/stop controls above.
+      </div>
+    </div>
   </div>
 
   <!-- BOTTOM: LOG -->
@@ -364,6 +471,7 @@ ws.addEventListener("message", (e) => {
     fillConfigForm();
     drawPCB();
     renderFeeders();
+    renderManualList();
   }
 
   if (msg.type === "components") {
@@ -396,10 +504,20 @@ function fillConfigForm() {
   if (!config) return;
   document.getElementById("pcb-x").value     = config.pcb.x;
   document.getElementById("pcb-y").value     = config.pcb.y;
+  document.getElementById("pcb-z").value     = config.pcb.z ?? 0;
   document.getElementById("pcb-rot").value   = config.pcb.rotation || 0;
   document.getElementById("cam-x").value     = config.camera.x;
   document.getElementById("cam-y").value     = config.camera.y;
+  document.getElementById("cam-z").value     = config.camera.z ?? 0;
   document.getElementById("z-travel").value  = config.zTravel;
+  document.getElementById("steps-per-mm").value = config.stepsPerMm;
+  const ws = config.workspace || {};
+  document.getElementById("ws-xmin").value = ws.xMin ?? -22888;
+  document.getElementById("ws-xmax").value = ws.xMax ?? 0;
+  document.getElementById("ws-ymin").value = ws.yMin ?? 0;
+  document.getElementById("ws-ymax").value = ws.yMax ?? 17000;
+  document.getElementById("ws-zmin").value = ws.zMin ?? 0;
+  document.getElementById("ws-zmax").value = ws.zMax ?? 58000;
 }
 
 document.getElementById("save-config").addEventListener("click", async () => {
@@ -407,13 +525,24 @@ document.getElementById("save-config").addEventListener("click", async () => {
     pcb: {
       x: parseFloat(document.getElementById("pcb-x").value) || 0,
       y: parseFloat(document.getElementById("pcb-y").value) || 0,
+      z: parseFloat(document.getElementById("pcb-z").value) || 0,
       rotation: parseFloat(document.getElementById("pcb-rot").value) || 0,
     },
     camera: {
       x: parseFloat(document.getElementById("cam-x").value) || 0,
       y: parseFloat(document.getElementById("cam-y").value) || 0,
+      z: parseFloat(document.getElementById("cam-z").value) || 0,
     },
-    zTravel: parseFloat(document.getElementById("z-travel").value) || 10,
+    zTravel: parseFloat(document.getElementById("z-travel").value) || 0,
+    stepsPerMm: parseFloat(document.getElementById("steps-per-mm").value) || 1,
+    workspace: {
+      xMin: parseFloat(document.getElementById("ws-xmin").value) || -22888,
+      xMax: parseFloat(document.getElementById("ws-xmax").value) || 0,
+      yMin: parseFloat(document.getElementById("ws-ymin").value) || 0,
+      yMax: parseFloat(document.getElementById("ws-ymax").value) || 17000,
+      zMin: parseFloat(document.getElementById("ws-zmin").value) || 0,
+      zMax: parseFloat(document.getElementById("ws-zmax").value) || 58000,
+    },
     feeders: collectFeeders(),
   };
   await fetch("/api/config", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(newCfg) });
@@ -453,32 +582,49 @@ function renderFeeders() {
   const header = document.createElement("div");
   header.className = "feeder-row";
   header.innerHTML = `<label style="margin:0;font-size:0.6rem;">VALUE</label>
-                      <label style="margin:0;font-size:0.6rem;">X (mm)</label>
-                      <label style="margin:0;font-size:0.6rem;">Y (mm)</label>
+                      <label style="margin:0;font-size:0.6rem;">X</label>
+                      <label style="margin:0;font-size:0.6rem;">Y</label>
+                      <label style="margin:0;font-size:0.6rem;">Z</label>
+                      <label style="margin:0;font-size:0.6rem;">PITCH</label>
+                      <div></div>
+                      <div></div>
                       <div></div>`;
   list.appendChild(header);
 
   // Show values from .pos + any extra in config
   const allVals = new Set([...uniqueVals, ...Object.keys(config.feeders)]);
   for (const val of allVals) {
-    const f = config.feeders[val] || { x:"", y:"" };
+    const f = config.feeders[val] || { x:"", y:"", z:"", pitch:"" };
     const inPos = uniqueVals.includes(val);
     const row = document.createElement("div");
     row.className = "feeder-row";
     row.innerHTML = `
       <div class="val" style="${inPos?"":"opacity:0.4"}">${val}</div>
-      <input type="number" step="0.01" data-val="${val}" data-axis="x" value="${f.x}">
-      <input type="number" step="0.01" data-val="${val}" data-axis="y" value="${f.y}">
+      <input type="number" step="1" data-val="${val}" data-axis="x" value="${f.x}">
+      <input type="number" step="1" data-val="${val}" data-axis="y" value="${f.y}">
+      <input type="number" step="1" data-val="${val}" data-axis="z" value="${f.z ?? ''}">
+      <input type="number" step="1" data-val="${val}" data-axis="pitch" value="${f.pitch ?? ''}" placeholder="430">
+      <button class="cap-btn cap-feeder" data-val="${val}" title="Capture current X,Y,Z">⊕</button>
+      <button class="cap-btn test-advance" data-val="${val}" title="Test tape advance">▶</button>
       <button class="del-btn" data-val="${val}">×</button>
     `;
     list.appendChild(row);
   }
 
-  list.querySelectorAll("input").forEach(i => i.addEventListener("input", () => { renderComponents(); drawPCB(); }));
+  list.querySelectorAll("input").forEach(i => i.addEventListener("input", () => { renderComponents(); drawPCB(); renderManualList(); }));
   list.querySelectorAll(".del-btn").forEach(b => b.addEventListener("click", (e) => {
     const v = e.target.dataset.val;
     if (config.feeders[v]) delete config.feeders[v];
     renderFeeders();
+    renderManualList();
+  }));
+  list.querySelectorAll(".cap-feeder").forEach(b => b.addEventListener("click", (e) => {
+    const v = e.target.dataset.val;
+    captureToFeeder(v, e.target);
+  }));
+  list.querySelectorAll(".test-advance").forEach(b => b.addEventListener("click", (e) => {
+    const v = e.target.dataset.val;
+    testAdvance(v, e.target);
   }));
 }
 
@@ -491,10 +637,17 @@ function collectFeeders() {
     const n = parseFloat(input.value);
     if (!isNaN(n)) feeders[val][axis] = n;
   });
-  // Only keep complete entries
+  // Only keep entries with x AND y (z and pitch are optional)
   const out = {};
   for (const [k, v] of Object.entries(feeders)) {
-    if (v.x !== undefined && v.y !== undefined) out[k] = v;
+    if (v.x !== undefined && v.y !== undefined) {
+      out[k] = {
+        x: v.x,
+        y: v.y,
+        z: v.z ?? 0,
+        pitch: v.pitch ?? 0,
+      };
+    }
   }
   return out;
 }
@@ -546,76 +699,122 @@ function drawPCB() {
   const W = canvas.width, H = canvas.height;
   ctx.clearRect(0,0,W,H);
 
-  // Compute world bounds from PCB + components + feeders + camera
-  let xs = [config.pcb.x, config.camera.x];
-  let ys = [config.pcb.y, config.camera.y];
-  components.forEach(c => {
-    xs.push(config.pcb.x + c.x);
-    ys.push(config.pcb.y + c.y);
-  });
-  Object.values(config.feeders).forEach(f => { xs.push(f.x); ys.push(f.y); });
-  xs.push(0); ys.push(0); xs.push(250); ys.push(250);
+  const stepsPerMm = config.stepsPerMm || 1;
+  const ws = config.workspace || { xMin: -22888, xMax: 0, yMin: 0, yMax: 17000 };
 
-  const minX = Math.min(...xs) - 10, maxX = Math.max(...xs) + 10;
-  const minY = Math.min(...ys) - 10, maxY = Math.max(...ys) + 10;
+  // X is negative on the machine (0 → -22888).
+  // We display it left-to-right by negating: -22888 becomes the left edge, 0 (home) is bottom-left.
+  // Visually: machine X=-22888 → screen LEFT, machine X=0 → screen RIGHT (home)
+  // But user wants home at BOTTOM-LEFT, so we mirror: wx = f(-x)
+  // i.e. we treat the display X as (-machine_x), ranging 0 → 22888
+  const dispXMin = 0;                        // -wsXMin flipped
+  const dispXMax = Math.abs(ws.xMin);        // 22888
+  const dispYMin = ws.yMin;                  // 0
+  const dispYMax = ws.yMax;                  // 17000
+  const dispW = dispXMax - dispXMin;
+  const dispH = dispYMax - dispYMin;
 
-  const scale = Math.min((W-40)/(maxX-minX), (H-40)/(maxY-minY));
-  const offX = 20 - minX*scale;
-  const offY = 20 + maxY*scale;  // flip Y
+  // Coordinate converters
+  // machine x (negative) → screen pixel: negate x so home(0) is left, -22888 is right
+  const pad = Math.max(dispW, dispH) * 0.04;
+  const viewXMin = dispXMin - pad, viewXMax = dispXMax + pad;
+  const viewYMin = dispYMin - pad, viewYMax = dispYMax + pad;
 
-  const wx = (x) => x*scale + offX;
-  const wy = (y) => offY - y*scale;
+  const scale = Math.min((W - 20) / (viewXMax - viewXMin), (H - 20) / (viewYMax - viewYMin));
+  const offX = (W - (viewXMax - viewXMin) * scale) / 2 - viewXMin * scale;
+  const offY = (H + (viewYMax - viewYMin) * scale) / 2 + viewYMin * scale;
 
-  // Grid
+  const wx = (x) => (-x) * scale + offX;   // negate X so 0=left, -22888=right
+  const wy = (y) => offY - y * scale;       // Y unchanged: 0=bottom, 17000=top
+
+  // Adaptive grid
+  const range = Math.max(dispW, dispH);
+  let gridStep = Math.pow(10, Math.floor(Math.log10(range / 8)));
+  if (range / gridStep > 15) gridStep *= 2;
+  else if (range / gridStep < 4) gridStep /= 2;
+
+  // Grid lines
   ctx.strokeStyle = "rgba(30,45,61,0.5)";
   ctx.lineWidth = 1;
-  for (let g = Math.floor(minX/20)*20; g <= maxX; g += 20) {
-    ctx.beginPath(); ctx.moveTo(wx(g), wy(minY)); ctx.lineTo(wx(g), wy(maxY)); ctx.stroke();
+  for (let g = dispXMin; g <= dispXMax; g += gridStep) {
+    ctx.beginPath(); ctx.moveTo(wx(-g), wy(viewYMin)); ctx.lineTo(wx(-g), wy(viewYMax)); ctx.stroke();
   }
-  for (let g = Math.floor(minY/20)*20; g <= maxY; g += 20) {
-    ctx.beginPath(); ctx.moveTo(wx(minX), wy(g)); ctx.lineTo(wx(maxX), wy(g)); ctx.stroke();
+  for (let g = dispYMin; g <= dispYMax; g += gridStep) {
+    ctx.beginPath(); ctx.moveTo(wx(-viewXMin), wy(g)); ctx.lineTo(wx(-viewXMax), wy(g)); ctx.stroke();
   }
 
-  // PCB outline (rough bounding box of components)
+  // Workspace outline
+  ctx.strokeStyle = "rgba(74,98,120,0.7)";
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(wx(ws.xMin), wy(dispYMax), dispW * scale, dispH * scale);
+
+  // HOME marker at (0,0) → bottom-left
+  ctx.fillStyle = "rgba(255,255,255,0.8)";
+  ctx.beginPath(); ctx.arc(wx(0), wy(0), 5, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = "rgba(200,216,232,0.9)";
+  ctx.font = "10px 'Share Tech Mono'";
+  ctx.fillText("HOME", wx(0) + 7, wy(0) - 5);
+
+  // Corner labels
+  ctx.fillStyle = "rgba(120,150,180,0.8)";
+  ctx.font = "9px 'Share Tech Mono'";
+  ctx.fillText("X=0 (home)", wx(0) - 4, wy(0) + 16);
+  ctx.fillText("X=-22888", wx(ws.xMin) - 2, wy(0) + 16);
+  ctx.fillText(`Y=${ws.yMax}`, wx(0) + 4, wy(ws.yMax) - 4);
+
+  // PCB outline
   if (components.length) {
-    const cxs = components.map(c => c.x), cys = components.map(c => c.y);
-    const px = config.pcb.x, py = config.pcb.y;
-    const w  = Math.max(...cxs) - Math.min(...cxs) + 20;
-    const h  = Math.max(...cys) - Math.min(...cys) + 20;
+    const cxsMm = components.map(c => c.x);
+    const cysMm = components.map(c => c.y);
+    const minCx = Math.min(...cxsMm), maxCx = Math.max(...cxsMm);
+    const minCy = Math.min(...cysMm), maxCy = Math.max(...cysMm);
+    const padMm = 5;
+
+    const x0 = config.pcb.x + (minCx - padMm) * stepsPerMm;
+    const y0 = config.pcb.y + (minCy - padMm) * stepsPerMm;
+    const w  = (maxCx - minCx + 2*padMm) * stepsPerMm;
+    const h  = (maxCy - minCy + 2*padMm) * stepsPerMm;
+
     ctx.strokeStyle = "rgba(0,255,159,0.5)";
-    ctx.fillStyle = "rgba(0,255,159,0.05)";
-    ctx.lineWidth = 1.5;
-    ctx.fillRect(wx(px - 10), wy(py + h - 10), w*scale, h*scale);
-    ctx.strokeRect(wx(px - 10), wy(py + h - 10), w*scale, h*scale);
-    ctx.fillStyle = "rgba(0,255,159,0.7)";
+    ctx.fillStyle   = "rgba(0,255,159,0.06)";
+    ctx.lineWidth   = 1.5;
+    // x0 is negative, x0+w is also negative → negate to get screen coords
+    const sx = wx(x0 + w);   // left edge on screen (x0+w is less negative = more to left)
+    const sw = w * scale;
+    const sy = wy(y0 + h);
+    const sh = h * scale;
+    ctx.fillRect(sx, sy, sw, sh);
+    ctx.strokeRect(sx, sy, sw, sh);
+    ctx.fillStyle = "rgba(0,255,159,0.8)";
     ctx.font = "10px 'Share Tech Mono'";
-    ctx.fillText("PCB", wx(px - 8), wy(py + h - 12));
+    ctx.fillText("PCB", sx + 4, sy + 12);
   }
 
   // Camera marker
   ctx.beginPath();
   ctx.arc(wx(config.camera.x), wy(config.camera.y), 8, 0, Math.PI*2);
-  ctx.strokeStyle = "var(--accent2)"; ctx.strokeStyle = "#ff6b35";
-  ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.strokeStyle = "#ff6b35"; ctx.lineWidth = 1.5; ctx.stroke();
   ctx.fillStyle = "rgba(255,107,53,0.2)"; ctx.fill();
-  ctx.fillStyle = "#ff6b35"; ctx.font = "10px 'Share Tech Mono'";
-  ctx.fillText("CAM", wx(config.camera.x)+10, wy(config.camera.y)-6);
+  ctx.fillStyle = "#ff6b35";
+  ctx.font = "10px 'Share Tech Mono'";
+  ctx.fillText("CAM", wx(config.camera.x) + 10, wy(config.camera.y) - 6);
 
   // Feeders
   const feedersNow = collectFeeders();
   for (const [val, f] of Object.entries(feedersNow)) {
-    ctx.fillStyle = "rgba(255,216,59,0.7)";
-    ctx.fillRect(wx(f.x)-4, wy(f.y)-4, 8, 8);
-    ctx.fillStyle = "#ffd83b"; ctx.font = "9px 'Share Tech Mono'";
-    ctx.fillText(val, wx(f.x)+6, wy(f.y)+3);
+    ctx.fillStyle = "rgba(255,216,59,0.8)";
+    ctx.fillRect(wx(f.x) - 4, wy(f.y) - 4, 8, 8);
+    ctx.fillStyle = "#ffd83b";
+    ctx.font = "9px 'Share Tech Mono'";
+    ctx.fillText(val, wx(f.x) + 6, wy(f.y) + 3);
   }
 
   // Components on PCB
   components.forEach((c, i) => {
     const queueItem = placementState.queue ? placementState.queue[i] : null;
-    const cx = config.pcb.x + c.x;
-    const cy = config.pcb.y + c.y;
-    let color = "rgba(0,212,255,0.7)";
+    const cx = config.pcb.x + c.x * stepsPerMm;
+    const cy = config.pcb.y + c.y * stepsPerMm;
+    let color = "rgba(0,212,255,0.8)";
     if (queueItem) {
       if (queueItem.done)    color = "rgba(74,98,120,0.5)";
       if (queueItem.current) color = "#00ff9f";
@@ -625,20 +824,20 @@ function drawPCB() {
     }
     ctx.fillStyle = color;
     ctx.beginPath();
-    ctx.arc(wx(cx), wy(cy), queueItem && queueItem.current ? 5 : 2.5, 0, Math.PI*2);
+    ctx.arc(wx(cx), wy(cy), queueItem && queueItem.current ? 5 : 3, 0, Math.PI*2);
     ctx.fill();
   });
 
-  // Machine position cursor
-  ctx.strokeStyle = "rgba(0,212,255,0.8)";
+  // Machine position crosshair
+  ctx.strokeStyle = "rgba(0,212,255,0.6)";
   ctx.lineWidth = 1; ctx.setLineDash([3,3]);
   ctx.beginPath(); ctx.moveTo(wx(machinePos.x), 0); ctx.lineTo(wx(machinePos.x), H); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(0, wy(machinePos.y)); ctx.lineTo(W, wy(machinePos.y)); ctx.stroke();
   ctx.setLineDash([]);
   ctx.beginPath();
   ctx.arc(wx(machinePos.x), wy(machinePos.y), 6, 0, Math.PI*2);
-  ctx.fillStyle = "#00d4ff"; ctx.shadowColor = "#00d4ff"; ctx.shadowBlur = 8; ctx.fill();
-  ctx.shadowBlur = 0;
+  ctx.fillStyle = "#00d4ff"; ctx.shadowColor = "#00d4ff"; ctx.shadowBlur = 8;
+  ctx.fill(); ctx.shadowBlur = 0;
 }
 
 // ─── PLACEMENT CONTROLS ───────────────────────────────────────────────────────
@@ -676,14 +875,230 @@ function updatePlacementUI() {
   drawPCB();
 }
 
+// ─── CAPTURE CURRENT POSITION ─────────────────────────────────────────────────
+// Reads the live machine position and writes it into the target inputs.
+function flashButton(btn) {
+  btn.classList.remove("flash");
+  void btn.offsetWidth;  // trigger reflow
+  btn.classList.add("flash");
+}
+
+document.getElementById("cap-pcb").addEventListener("click", (e) => {
+  document.getElementById("pcb-x").value = Math.round(machinePos.x);
+  document.getElementById("pcb-y").value = Math.round(machinePos.y);
+  document.getElementById("pcb-z").value = Math.round(machinePos.z);
+  flashButton(e.target);
+});
+
+document.getElementById("cap-cam").addEventListener("click", (e) => {
+  document.getElementById("cam-x").value = Math.round(machinePos.x);
+  document.getElementById("cam-y").value = Math.round(machinePos.y);
+  document.getElementById("cam-z").value = Math.round(machinePos.z);
+  flashButton(e.target);
+});
+
+document.getElementById("cap-z-travel").addEventListener("click", (e) => {
+  document.getElementById("z-travel").value = Math.round(machinePos.z);
+  flashButton(e.target);
+});
+
+function captureToFeeder(value, button) {
+  // Find the inputs for this feeder value
+  const xInput = document.querySelector(`#feeder-list input[data-val="${value}"][data-axis="x"]`);
+  const yInput = document.querySelector(`#feeder-list input[data-val="${value}"][data-axis="y"]`);
+  const zInput = document.querySelector(`#feeder-list input[data-val="${value}"][data-axis="z"]`);
+  if (xInput) xInput.value = Math.round(machinePos.x);
+  if (yInput) yInput.value = Math.round(machinePos.y);
+  if (zInput) zInput.value = Math.round(machinePos.z);
+  flashButton(button);
+  renderComponents();
+  drawPCB();
+}
+
+function testAdvance(value, button) {
+  // Read the pitch from this feeder's row
+  const pitchInput = document.querySelector(`#feeder-list input[data-val="${value}"][data-axis="pitch"]`);
+  const pitch = pitchInput ? parseFloat(pitchInput.value) : 0;
+  if (!pitch || pitch <= 0) {
+    alert(`No pitch set for feeder "${value}". Enter a pitch value first.`);
+    return;
+  }
+  // Read travel Z from the config form
+  const travelZ = parseFloat(document.getElementById("z-travel").value) || 0;
+  // ADVANCE expects the nozzle to be DOWN in the pocket — warn the user
+  if (!confirm(`Test ADVANCE for "${value}":\n\nPitch: ${pitch}  Travel Z: ${travelZ}\n\n⚠️  The nozzle MUST already be down in the feeder pocket before running this.\n\nProceed?`)) return;
+  ws.send(JSON.stringify({ type: "command", command: `ADVANCE Y${Math.round(pitch)} Z${Math.round(travelZ)}` }));
+  appendLog(`> ADVANCE Y${Math.round(pitch)} Z${Math.round(travelZ)}  (testing ${value})`, new Date().toISOString());
+  flashButton(button);
+}
+
+// ─── MANUAL / TEST PLACEMENT ─────────────────────────────────────────────────
+// Local in-browser list of test components. Persisted via /api/config.
+
+function getManualComponents() {
+  return (config && Array.isArray(config.manualComponents)) ? config.manualComponents : [];
+}
+
+function renderManualList() {
+  const list = document.getElementById("manual-list");
+  if (!list) return;
+  list.innerHTML = "";
+  const manual = getManualComponents();
+  const feeders = config ? collectFeeders() : {};
+  const feederKeys = Object.keys(feeders);
+
+  if (!manual.length) {
+    list.innerHTML = `<div style="text-align:center; color:var(--muted); padding:14px; font-size:0.72rem;">No test components yet. Click + ADD ROW to start.</div>`;
+    return;
+  }
+
+  manual.forEach((c, i) => {
+    const card = document.createElement("div");
+    card.className = "manual-card";
+    const options = feederKeys.map(k =>
+      `<option value="${k}" ${k === c.value ? "selected" : ""}>${k}</option>`
+    ).join("");
+    card.innerHTML = `
+      <div class="manual-card-top">
+        <div class="row-num">#${i+1}</div>
+        <input type="text" class="ref-input" data-i="${i}" data-f="ref" value="${c.ref || ''}" placeholder="Ref (e.g. C1)">
+        <select data-i="${i}" data-f="value"><option value="">— feeder —</option>${options}</select>
+        <button class="mini-btn cap-manual" data-i="${i}" title="Capture current X Y Z">⊕</button>
+        <button class="mini-btn move-up" data-i="${i}" title="Move up">↑</button>
+        <button class="mini-btn del" data-i="${i}" title="Delete">×</button>
+      </div>
+      <div class="manual-card-bottom">
+        <div class="axis-wrap">
+          <div class="axis-label">X</div>
+          <input type="number" step="1" data-i="${i}" data-f="x" value="${c.x ?? ''}" placeholder="0">
+        </div>
+        <div class="axis-wrap">
+          <div class="axis-label">Y</div>
+          <input type="number" step="1" data-i="${i}" data-f="y" value="${c.y ?? ''}" placeholder="0">
+        </div>
+        <div class="axis-wrap">
+          <div class="axis-label">Z</div>
+          <input type="number" step="1" data-i="${i}" data-f="z" value="${c.z ?? ''}" placeholder="0">
+        </div>
+        <div class="axis-wrap">
+          <div class="axis-label">R°</div>
+          <input type="number" step="1" data-i="${i}" data-f="rotation" value="${c.rotation ?? 0}" placeholder="0">
+        </div>
+      </div>
+    `;
+    list.appendChild(card);
+  });
+
+  // Hook up input changes — save on every input
+  list.querySelectorAll("input, select").forEach(el => {
+    el.addEventListener("input", () => {
+      const i = parseInt(el.dataset.i);
+      const f = el.dataset.f;
+      const m = getManualComponents();
+      if (!m[i]) return;
+      if (f === "ref" || f === "value") {
+        m[i][f] = el.value;
+      } else {
+        const n = parseFloat(el.value);
+        m[i][f] = isNaN(n) ? null : n;
+      }
+      config.manualComponents = m;
+    });
+  });
+
+  list.querySelectorAll(".cap-manual").forEach(b => b.addEventListener("click", (e) => {
+    const i = parseInt(e.target.dataset.i);
+    const m = getManualComponents();
+    if (!m[i]) return;
+    m[i].x = Math.round(machinePos.x);
+    m[i].y = Math.round(machinePos.y);
+    m[i].z = Math.round(machinePos.z);
+    config.manualComponents = m;
+    renderManualList();
+  }));
+
+  list.querySelectorAll(".move-up").forEach(b => b.addEventListener("click", (e) => {
+    const i = parseInt(e.target.dataset.i);
+    if (i <= 0) return;
+    const m = getManualComponents();
+    [m[i-1], m[i]] = [m[i], m[i-1]];
+    config.manualComponents = m;
+    renderManualList();
+  }));
+
+  list.querySelectorAll(".del").forEach(b => b.addEventListener("click", (e) => {
+    const i = parseInt(e.target.dataset.i);
+    const m = getManualComponents();
+    m.splice(i, 1);
+    config.manualComponents = m;
+    renderManualList();
+  }));
+}
+
+document.getElementById("manual-add").addEventListener("click", () => {
+  if (!config) return;
+  if (!Array.isArray(config.manualComponents)) config.manualComponents = [];
+  const i = config.manualComponents.length + 1;
+  config.manualComponents.push({
+    ref: `T${i}`, value: "", x: null, y: null, z: null, rotation: 0,
+  });
+  renderManualList();
+});
+
+document.getElementById("manual-clear").addEventListener("click", () => {
+  if (!confirm("Clear all test components?")) return;
+  if (config) config.manualComponents = [];
+  renderManualList();
+});
+
+document.getElementById("btn-start-test").addEventListener("click", async () => {
+  const manual = getManualComponents();
+  // Validate: each must have ref, value (feeder), x, y, z
+  const valid = manual.filter(c =>
+    c.ref && c.value &&
+    c.x !== null && c.x !== undefined &&
+    c.y !== null && c.y !== undefined &&
+    c.z !== null && c.z !== undefined
+  );
+  if (!valid.length) {
+    alert("No valid test components. Each row needs: Ref, Feeder, X, Y, Z.");
+    return;
+  }
+  if (valid.length !== manual.length) {
+    if (!confirm(`${manual.length - valid.length} row(s) are incomplete and will be skipped.\nProceed with ${valid.length} valid component(s)?`)) return;
+  }
+  // Save current config (so feeders + manual list persist)
+  await fetch("/api/config", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ feeders: collectFeeders(), manualComponents: manual })
+  });
+  // Start test placement
+  await fetch("/api/test-placement/start", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ components: valid })
+  });
+});
+
 // ─── JOG ──────────────────────────────────────────────────────────────────────
-document.getElementById("jog-btn").addEventListener("click", async () => {
+function readJogInputs() {
   const body = {};
   ["x","y","z","r"].forEach(a => {
     const v = parseFloat(document.getElementById(`jog-${a}`).value);
     if (!isNaN(v)) body[a] = v;
   });
+  return body;
+}
+
+document.getElementById("jog-btn").addEventListener("click", async () => {
+  const body = readJogInputs();
   if (!Object.keys(body).length) return;
+  await fetch("/api/jog", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body) });
+});
+
+document.getElementById("jog-btn-safe").addEventListener("click", async () => {
+  const body = readJogInputs();
+  if (!Object.keys(body).length) return;
+  body.safe = true;
   await fetch("/api/jog", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body) });
 });
 

@@ -1,575 +1,459 @@
+/*
+ * 3D Placer — 4-Axis Controller (webapp protocol)
+ * Hardware: Arduino Mega + CNC Shield + 4× stepper drivers + vacuum pump
+ *
+ * Motion logic is identical to the reference sketch:
+ *   - Uses motor.move(steps) for RELATIVE moves (not moveTo)
+ *   - Same limit switch protection (runMotorWithLimit)
+ *   - Same homing logic (homeAxis with constant-speed approach)
+ *   - Same position-reporting format
+ *
+ * IMPORTANT — Install library first:
+ *   Arduino IDE → Sketch → Include Library → Manage Libraries
+ *   → Search "AccelStepper" → Install
+ *
+ * Protocol — every command returns "OK" or "ERR: <reason>" when complete.
+ * The web app waits for that response before sending the next command.
+ *
+ *   MOVE X<val> Y<val> Z<val> R<val>   ABSOLUTE move (go to position X=val)
+ *   STEP X<val> Y<val> Z<val> R<val>   RELATIVE move (move val steps from current)
+ *   ADVANCE Y<pitch> Z<travelZ>         Tape advance from pickup position:
+ *                                       Nozzle starts at pickup Z in pocket. Sequence:
+ *                                         0. plunge +100 deeper to grip tape hole
+ *                                         1. drag Y by -<pitch>
+ *                                         2. lift Z to <travelZ>
+ *                                         3. return Y by +<pitch>
+ *                                         4. plunge back to deep position
+ *                                       Ends with nozzle deep in pocket; caller
+ *                                       should lift to travel Z after this.
+ *                                       Example: ADVANCE Y430 Z5000
+ *   PICK                                lower Z, vacuum ON, raise Z
+ *   PLACE                               lower Z, vacuum OFF, raise Z
+ *   VAC ON | VAC OFF | ON | OFF         manual vacuum control
+ *   HOME                                home all axes with limit switches
+ *   HOME X | HOME Y | HOME Z            home one axis
+ *   ZERO                                set current position as 0 for all motors
+ *   STATUS                              report current X Y Z R
+ *   STOP                                immediate stop
+ *   SWITCHES                            print limit switch states
+ */
+
 #include <AccelStepper.h>
 
-// =============================================================
-//  4-axis placer controller for ARDUINO MEGA
-//  Based on your working Serial Monitor code
-//
-//  Supports:
-//    - Old step commands: X 200, Y -100, Z 50, A 50, R 400, ALL 100
-//    - Web app commands: STATUS, ZERO, HOME, HOME X, MOVE X10 Y5 Z8 R0,
-//                        SPEED 5, VAC ON, VAC OFF, PICK, PLACE, STOP
-//    - Position printing only when position changes
-// =============================================================
-
-// -------------------- Pins --------------------
-#define ENABLE_PIN 8
-
-// CNC Shield axes
-#define X_STEP_PIN 2
-#define X_DIR_PIN  5
-
-#define Y_STEP_PIN 3
-#define Y_DIR_PIN  6
-
-#define Z_STEP_PIN 4
-#define Z_DIR_PIN  7
-
-#define A_STEP_PIN 12
-#define A_DIR_PIN  13
-
-// Rotation motor
-#define ROT_DIR_PIN    17
+// ─── PIN CONFIG (CNC Shield V3) ──────────────────────────────────────────
+#define ENABLE_PIN     8
+#define X_STEP_PIN     2
+#define X_DIR_PIN      5
+#define Y_STEP_PIN     3
+#define Y_DIR_PIN      6
+#define Z_STEP_PIN     4
+#define Z_DIR_PIN      7
 #define ROT_STEP_PIN   18
+#define ROT_DIR_PIN    17
 #define ROT_ENABLE_PIN 19
+#define PUMP_PIN       A0
+#define X_LIMIT_PIN    14
+#define Y_LIMIT_PIN    15
+#define Z_LIMIT_PIN    16
 
-// Pump transistor
-#define PUMP_PIN A0
-
-// Limit switches on Arduino Mega
-// Note: On Mega, pins 14/15/16 are normal digital pins too.
-// They are NOT A0/A1/A2. A0 is digital pin 54 on Mega.
-#define X_LIMIT_PIN 14
-#define Y_LIMIT_PIN 15
-#define Z_LIMIT_PIN 16
-
-// -------------------- Motors --------------------
 AccelStepper motorX(AccelStepper::DRIVER, X_STEP_PIN, X_DIR_PIN);
 AccelStepper motorY(AccelStepper::DRIVER, Y_STEP_PIN, Y_DIR_PIN);
 AccelStepper motorZ(AccelStepper::DRIVER, Z_STEP_PIN, Z_DIR_PIN);
-AccelStepper motorA(AccelStepper::DRIVER, A_STEP_PIN, A_DIR_PIN);
 AccelStepper motorR(AccelStepper::DRIVER, ROT_STEP_PIN, ROT_DIR_PIN);
 
-// -------------------- Calibration --------------------
-// IMPORTANT: Adjust these values after measuring the real movement.
-// Web commands use mm for X/Y/Z and degrees for R.
-const float STEPS_PER_MM_X = 80.0;
-const float STEPS_PER_MM_Y = 80.0;
-const float STEPS_PER_MM_Z = 400.0;
-const float STEPS_PER_DEG_R = 10.0;
+// ─── HOMING CONFIG ───────────────────────────────────────────────────────
+// X moves positive, Y negative, Z negative
+const float X_HOMING_SPEED =  800;
+const float Y_HOMING_SPEED = -800;
+const float Z_HOMING_SPEED = -1500;
 
-// -------------------- Safe Z values --------------------
-// First tests should stay high. Lower them gradually only after testing.
-const float Z_TRAVEL = 10.0;
-const float Z_PICK   = 8.0;
-const float Z_PLACE  = 8.0;
+// Which side of the workspace is each switch on?
+// true  = switch on positive end of travel
+// false = switch on negative end of travel
+const bool X_LIMIT_IS_POSITIVE = true;
+const bool Y_LIMIT_IS_POSITIVE = false;
+const bool Z_LIMIT_IS_POSITIVE = false;
 
-// -------------------- Homing speeds --------------------
-// Same directions as your working homing code:
-// X moves positive, Y negative, Z negative.
-const float X_HOMING_SPEED = 800.0;
-const float Y_HOMING_SPEED = -800.0;
-const float Z_HOMING_SPEED = -800.0;
+// NC switches + INPUT_PULLUP:
+//   not pressed → pin reads LOW
+//   pressed     → pin reads HIGH
+byte xLimitCounter = 0;
+byte yLimitCounter = 0;
+byte zLimitCounter = 0;
+const byte LIMIT_DEBOUNCE_COUNT = 5;
 
-const unsigned long HOMING_TIMEOUT_MS = 15000;
+// ─── PICK / PLACE CONFIG ─────────────────────────────────────────────────
+// Relative Z moves for pick/place sequences.
+// Negative = down, positive = up.
+// You can tune these or override via config from the webapp.
+long Z_DROP_STEPS = -500;   // how far DOWN to drop nozzle for pick/place
+long Z_LIFT_STEPS =  500;   // how far UP to lift after (should equal -Z_DROP_STEPS)
 
-// -------------------- Position printing --------------------
-long lastPrintedX = 2147483647L;
-long lastPrintedY = 2147483647L;
-long lastPrintedZ = 2147483647L;
-long lastPrintedA = 2147483647L;
-long lastPrintedR = 2147483647L;
-int lastPrintedPump = -1;
+// ─── STATE ───────────────────────────────────────────────────────────────
+String inputBuffer = "";
+unsigned long lastReport = 0;
+const unsigned long REPORT_INTERVAL = 200;  // ms
 
-const unsigned long POSITION_PRINT_INTERVAL_MS = 100;
-unsigned long lastPositionPrintMs = 0;
+// ─────────────────────────────────────────────────────────────────────────
+void setup() {
+  Serial.begin(9600);
+  delay(2000);  // let serial stabilize after DTR reset
 
-// -------------------- Helpers --------------------
-void setupSpeeds(float xySpeedMmPerSec = 20.0) {
-  motorX.setMaxSpeed(xySpeedMmPerSec * STEPS_PER_MM_X);
-  motorY.setMaxSpeed(xySpeedMmPerSec * STEPS_PER_MM_Y);
-  motorZ.setMaxSpeed(10.0 * STEPS_PER_MM_Z);
-  motorA.setMaxSpeed(10.0 * STEPS_PER_MM_Z);
-  motorR.setMaxSpeed(180.0 * STEPS_PER_DEG_R);
+  // Enable CNC Shield drivers
+  pinMode(ENABLE_PIN, OUTPUT);
+  digitalWrite(ENABLE_PIN, LOW);
 
-  motorX.setAcceleration(3000);
-  motorY.setAcceleration(4000);
-  motorZ.setAcceleration(3000);
-  motorA.setAcceleration(3000);
-  motorR.setAcceleration(3000);
-}
+  // Enable rotation motor driver
+  pinMode(ROT_ENABLE_PIN, OUTPUT);
+  digitalWrite(ROT_ENABLE_PIN, LOW);
 
-void printHelp() {
-  Serial.println("READY");
-  Serial.println("Arduino Mega 4-axis placer online.");
-  Serial.println("Web commands:");
-  Serial.println("  STATUS");
-  Serial.println("  ZERO");
-  Serial.println("  HOME / HOME X / HOME Y / HOME Z");
-  Serial.println("  MOVE X10 Y5 Z8 R0");
-  Serial.println("  SPEED 5");
-  Serial.println("  VAC ON / VAC OFF");
-  Serial.println("  PICK / PLACE");
-  Serial.println("  STOP");
-  Serial.println("Old step commands:");
-  Serial.println("  X 200, Y -100, Z 50, A 300, R 400, ALL 100");
-  Serial.println("  on / off");
-}
-
-float currentXmm() { return motorX.currentPosition() / STEPS_PER_MM_X; }
-float currentYmm() { return motorY.currentPosition() / STEPS_PER_MM_Y; }
-float currentZmm() { return motorZ.currentPosition() / STEPS_PER_MM_Z; }
-float currentAmm() { return motorA.currentPosition() / STEPS_PER_MM_Z; }
-float currentRdeg() { return motorR.currentPosition() / STEPS_PER_DEG_R; }
-
-void printPosition() {
-  Serial.print("POS X:");
-  Serial.print(currentXmm(), 2);
-  Serial.print(" Y:");
-  Serial.print(currentYmm(), 2);
-  Serial.print(" Z:");
-  Serial.print(currentZmm(), 2);
-  Serial.print(" R:");
-  Serial.print(currentRdeg(), 1);
-  Serial.print(" A:");
-  Serial.print(currentAmm(), 2);
-  Serial.print(" Pump:");
-  Serial.println(digitalRead(PUMP_PIN) == HIGH ? "ON" : "OFF");
-}
-
-void printPositionIfChanged() {
-  unsigned long now = millis();
-  if (now - lastPositionPrintMs < POSITION_PRINT_INTERVAL_MS) return;
-
-  long x = motorX.currentPosition();
-  long y = motorY.currentPosition();
-  long z = motorZ.currentPosition();
-  long a = motorA.currentPosition();
-  long r = motorR.currentPosition();
-  int pump = digitalRead(PUMP_PIN);
-
-  bool changed =
-    x != lastPrintedX ||
-    y != lastPrintedY ||
-    z != lastPrintedZ ||
-    a != lastPrintedA ||
-    r != lastPrintedR ||
-    pump != lastPrintedPump;
-
-  if (changed) {
-    printPosition();
-    lastPrintedX = x;
-    lastPrintedY = y;
-    lastPrintedZ = z;
-    lastPrintedA = a;
-    lastPrintedR = r;
-    lastPrintedPump = pump;
-    lastPositionPrintMs = now;
-  }
-}
-
-void runAllMotors() {
-  motorX.run();
-  motorY.run();
-  motorZ.run();
-  motorA.run();
-  motorR.run();
-}
-
-bool motorsBusy() {
-  return motorX.distanceToGo() != 0 ||
-         motorY.distanceToGo() != 0 ||
-         motorZ.distanceToGo() != 0 ||
-         motorA.distanceToGo() != 0 ||
-         motorR.distanceToGo() != 0;
-}
-
-void runUntilDone() {
-  while (motorsBusy()) {
-    runAllMotors();
-    printPositionIfChanged();
-  }
-}
-
-void stopAllMotorsNow() {
-  motorX.moveTo(motorX.currentPosition());
-  motorY.moveTo(motorY.currentPosition());
-  motorZ.moveTo(motorZ.currentPosition());
-  motorA.moveTo(motorA.currentPosition());
-  motorR.moveTo(motorR.currentPosition());
-  Serial.println("OK stopped");
-}
-
-void zeroAllAxes() {
-  motorX.setCurrentPosition(0);
-  motorY.setCurrentPosition(0);
-  motorZ.setCurrentPosition(0);
-  motorA.setCurrentPosition(0);
-  motorR.setCurrentPosition(0);
-
-  lastPrintedX = 2147483647L;
-  lastPrintedY = 2147483647L;
-  lastPrintedZ = 2147483647L;
-  lastPrintedA = 2147483647L;
-  lastPrintedR = 2147483647L;
-
-  Serial.println("OK zeroed");
-  printPosition();
-}
-
-void moveToMm(float x, float y, float z, float r) {
-  motorX.moveTo(lround(x * STEPS_PER_MM_X));
-  motorY.moveTo(lround(y * STEPS_PER_MM_Y));
-
-  long zSteps = lround(z * STEPS_PER_MM_Z);
-  motorZ.moveTo(zSteps);
-  motorA.moveTo(zSteps); // A mirrors Z mechanically using inverted direction
-
-  motorR.moveTo(lround(r * STEPS_PER_DEG_R));
-}
-
-void moveZToMm(float z) {
-  long zSteps = lround(z * STEPS_PER_MM_Z);
-  motorZ.moveTo(zSteps);
-  motorA.moveTo(zSteps);
-}
-
-void vacuumOn() {
-  digitalWrite(PUMP_PIN, HIGH);
-  Serial.println("OK vacuum on");
-}
-
-void vacuumOff() {
+  // Pump
+  pinMode(PUMP_PIN, OUTPUT);
   digitalWrite(PUMP_PIN, LOW);
-  Serial.println("OK vacuum off");
+
+  // Limit switches
+  pinMode(X_LIMIT_PIN, INPUT_PULLUP);
+  pinMode(Y_LIMIT_PIN, INPUT_PULLUP);
+  pinMode(Z_LIMIT_PIN, INPUT_PULLUP);
+
+  // Motor speeds & acceleration (same as reference sketch)
+  motorX.setMaxSpeed(1000);
+  motorX.setAcceleration(3000);
+
+  motorY.setMaxSpeed(2000);
+  motorY.setAcceleration(4000);
+
+  motorZ.setMaxSpeed(2000);
+  motorZ.setAcceleration(3000);
+
+  motorR.setMaxSpeed(2000);
+  motorR.setAcceleration(3000);
+
+  Serial.println("READY");
+  Serial.println("4-axis placer online.");
 }
 
-// NC switch with INPUT_PULLUP, as in your homing code:
-// not pressed = LOW, pressed/open = HIGH
-bool homeSingleAxis(AccelStepper &motor, int limitPin, float speed, const char* axisName) {
+// ─────────────────────────────────────────────────────────────────────────
+void loop() {
+  readSerial();
+
+  // X, Y, Z get limit-switch protection
+  runMotorWithLimit(motorX, X_LIMIT_PIN, X_LIMIT_IS_POSITIVE, "X", xLimitCounter);
+  runMotorWithLimit(motorY, Y_LIMIT_PIN, Y_LIMIT_IS_POSITIVE, "Y", yLimitCounter);
+  runMotorWithLimit(motorZ, Z_LIMIT_PIN, Z_LIMIT_IS_POSITIVE, "Z", zLimitCounter);
+
+  // R has no limit switch
+  motorR.run();
+
+  // Periodic position report
+  if (millis() - lastReport > REPORT_INTERVAL) {
+    reportPosition();
+    lastReport = millis();
+  }
+}
+
+// ─── SERIAL READ ─────────────────────────────────────────────────────────
+void readSerial() {
+  while (Serial.available()) {
+    char c = Serial.read();
+    if (c == '\n' || c == '\r') {
+      if (inputBuffer.length() > 0) {
+        handleCommand(inputBuffer);
+        inputBuffer = "";
+      }
+    } else {
+      inputBuffer += c;
+    }
+  }
+}
+
+// ─── COMMAND HANDLER ─────────────────────────────────────────────────────
+void handleCommand(String cmd) {
+  cmd.trim();
+  String upper = cmd; upper.toUpperCase();
+
+  if (upper.startsWith("MOVE")) {
+    handleMove(cmd, false);   // absolute
+  }
+  else if (upper.startsWith("STEP")) {
+    handleMove(cmd, true);    // relative
+  }
+  else if (upper.startsWith("ADVANCE")) {
+    handleAdvance(cmd);
+  }
+  else if (upper == "PICK") {
+    doPick();
+    Serial.println("OK");
+  }
+  else if (upper == "PLACE") {
+    doPlace();
+    Serial.println("OK");
+  }
+  else if (upper == "VAC ON" || upper == "ON") {
+    digitalWrite(PUMP_PIN, HIGH);
+    Serial.println("OK");
+  }
+  else if (upper == "VAC OFF" || upper == "OFF") {
+    digitalWrite(PUMP_PIN, LOW);
+    Serial.println("OK");
+  }
+  else if (upper == "HOME") {
+    doHoming();
+    Serial.println("OK");
+  }
+  else if (upper == "HOME X") {
+    homeAxis(motorX, X_LIMIT_PIN, X_HOMING_SPEED, "X");
+    Serial.println("OK");
+  }
+  else if (upper == "HOME Y") {
+    homeAxis(motorY, Y_LIMIT_PIN, Y_HOMING_SPEED, "Y");
+    Serial.println("OK");
+  }
+  else if (upper == "HOME Z") {
+    homeAxis(motorZ, Z_LIMIT_PIN, Z_HOMING_SPEED, "Z");
+    Serial.println("OK");
+  }
+  else if (upper == "ZERO") {
+    motorX.setCurrentPosition(0);
+    motorY.setCurrentPosition(0);
+    motorZ.setCurrentPosition(0);
+    motorR.setCurrentPosition(0);
+    Serial.println("OK");
+  }
+  else if (upper == "STATUS") {
+    reportPosition();
+    Serial.println("OK");
+  }
+  else if (upper == "STOP") {
+    motorX.stop(); motorY.stop(); motorZ.stop(); motorR.stop();
+    Serial.println("OK");
+  }
+  else if (upper == "SWITCHES") {
+    printSwitches();
+    Serial.println("OK");
+  }
+  else {
+    Serial.print("ERR: unknown command: "); Serial.println(cmd);
+  }
+}
+
+// ─── MOVE / STEP COMMAND ─────────────────────────────────────────────────
+// MOVE X1000 Y500 Z-200 R45    → ABSOLUTE: motorX.moveTo(1000)
+// STEP X1000 Y500 Z-200 R45    → RELATIVE: motorX.move(1000)
+// All specified axes move simultaneously. Waits until all have arrived.
+void handleMove(String cmd, bool relative) {
+  long vx = 0, vy = 0, vz = 0, vr = 0;
+  bool hasX = false, hasY = false, hasZ = false, hasR = false;
+
+  int idx;
+  if ((idx = cmd.indexOf('X')) >= 0) { vx = cmd.substring(idx+1).toInt(); hasX = true; }
+  if ((idx = cmd.indexOf('Y')) >= 0) { vy = cmd.substring(idx+1).toInt(); hasY = true; }
+  if ((idx = cmd.indexOf('Z')) >= 0) { vz = cmd.substring(idx+1).toInt(); hasZ = true; }
+  if ((idx = cmd.indexOf('R')) >= 0) { vr = cmd.substring(idx+1).toInt(); hasR = true; }
+
+  if (relative) {
+    // STEP: relative moves (matches reference sketch's motor.move())
+    if (hasX) motorX.move(vx);
+    if (hasY) motorY.move(vy);
+    if (hasZ) motorZ.move(vz);
+    if (hasR) motorR.move(vr);
+  } else {
+    // MOVE: absolute targets
+    if (hasX) motorX.moveTo(vx);
+    if (hasY) motorY.moveTo(vy);
+    if (hasZ) motorZ.moveTo(vz);
+    if (hasR) motorR.moveTo(vr);
+  }
+
+  // Run motors until all arrive (with limit protection on X/Y/Z)
+  while (motorX.distanceToGo() != 0 || motorY.distanceToGo() != 0 ||
+         motorZ.distanceToGo() != 0 || motorR.distanceToGo() != 0) {
+    runMotorWithLimit(motorX, X_LIMIT_PIN, X_LIMIT_IS_POSITIVE, "X", xLimitCounter);
+    runMotorWithLimit(motorY, Y_LIMIT_PIN, Y_LIMIT_IS_POSITIVE, "Y", yLimitCounter);
+    runMotorWithLimit(motorZ, Z_LIMIT_PIN, Z_LIMIT_IS_POSITIVE, "Z", zLimitCounter);
+    motorR.run();
+
+    if (millis() - lastReport > REPORT_INTERVAL) {
+      reportPosition();
+      lastReport = millis();
+    }
+  }
+
+  Serial.println("OK");
+}
+
+// ─── ADVANCE COMMAND (tape feeder scroll, returns to pocket) ─────────────
+// ADVANCE Y<pitch> Z<travelZ>
+//   Starting condition: nozzle is DOWN in the feeder pocket (at pocket Z).
+//   Sequence:
+//     0. Plunge an EXTRA 100 steps deeper into the pocket (grip the tape hole)
+//     1. Drag Y by -<pitch>       (scroll the tape backward while nozzle grips)
+//     2. Lift Z to <travelZ>      (lift the nozzle out)
+//     3. Return Y by +<pitch>     (head back to original Y over pocket)
+//     4. Plunge Z back to deep    (return to the deeper position)
+//   Ending condition: nozzle is DOWN in pocket (at original + 100 deeper).
+//   Caller should lift to travel Z afterward.
+// Example: ADVANCE Y430 Z5000
+void handleAdvance(String cmd) {
+  long pitch = 0;
+  long travelZ = 0;
+  bool hasY = false, hasZ = false;
+
+  int idx;
+  if ((idx = cmd.indexOf('Y')) >= 0) { pitch = cmd.substring(idx+1).toInt(); hasY = true; }
+  if ((idx = cmd.indexOf('Z')) >= 0) { travelZ = cmd.substring(idx+1).toInt(); hasZ = true; }
+
+  if (!hasY || pitch == 0) {
+    Serial.println("ERR: ADVANCE requires Y<pitch>");
+    return;
+  }
+  if (!hasZ) {
+    Serial.println("ERR: ADVANCE requires Z<travelZ>");
+    return;
+  }
+
+  // Remember where we started (nozzle is currently in the pocket at pickup Z)
+  long startZ = motorZ.currentPosition();
+
+  // Step 0: plunge 100 deeper to grip the tape hole
+  // Z+ is DOWN on this machine
+  long deepZ = startZ + 100;
+  motorZ.moveTo(deepZ);
+  while (motorZ.distanceToGo() != 0) {
+    runMotorWithLimit(motorZ, Z_LIMIT_PIN, Z_LIMIT_IS_POSITIVE, "Z", zLimitCounter);
+  }
+
+  // Step 1: drag Y by -pitch (scroll tape backward, nozzle gripping hole)
+  motorY.move(-pitch);
+  while (motorY.distanceToGo() != 0) {
+    runMotorWithLimit(motorY, Y_LIMIT_PIN, Y_LIMIT_IS_POSITIVE, "Y", yLimitCounter);
+  }
+
+  // Step 2: lift Z to travel height (absolute)
+  motorZ.moveTo(travelZ);
+  while (motorZ.distanceToGo() != 0) {
+    runMotorWithLimit(motorZ, Z_LIMIT_PIN, Z_LIMIT_IS_POSITIVE, "Z", zLimitCounter);
+  }
+
+  // Step 3: return Y by +pitch (head back over original pocket)
+  motorY.move(pitch);
+  while (motorY.distanceToGo() != 0) {
+    runMotorWithLimit(motorY, Y_LIMIT_PIN, Y_LIMIT_IS_POSITIVE, "Y", yLimitCounter);
+  }
+
+  // Step 4: plunge back to deep position (startZ + 100)
+  motorZ.moveTo(deepZ);
+  while (motorZ.distanceToGo() != 0) {
+    runMotorWithLimit(motorZ, Z_LIMIT_PIN, Z_LIMIT_IS_POSITIVE, "Z", zLimitCounter);
+  }
+
+  Serial.println("OK");
+}
+void doPick() {
+  // Drop Z, vacuum ON, raise Z
+  motorZ.move(Z_DROP_STEPS);
+  while (motorZ.distanceToGo() != 0) {
+    runMotorWithLimit(motorZ, Z_LIMIT_PIN, Z_LIMIT_IS_POSITIVE, "Z", zLimitCounter);
+  }
+  digitalWrite(PUMP_PIN, HIGH);
+  delay(200);
+  motorZ.move(Z_LIFT_STEPS);
+  while (motorZ.distanceToGo() != 0) {
+    runMotorWithLimit(motorZ, Z_LIMIT_PIN, Z_LIMIT_IS_POSITIVE, "Z", zLimitCounter);
+  }
+}
+
+void doPlace() {
+  motorZ.move(Z_DROP_STEPS);
+  while (motorZ.distanceToGo() != 0) {
+    runMotorWithLimit(motorZ, Z_LIMIT_PIN, Z_LIMIT_IS_POSITIVE, "Z", zLimitCounter);
+  }
+  digitalWrite(PUMP_PIN, LOW);
+  delay(200);
+  motorZ.move(Z_LIFT_STEPS);
+  while (motorZ.distanceToGo() != 0) {
+    runMotorWithLimit(motorZ, Z_LIMIT_PIN, Z_LIMIT_IS_POSITIVE, "Z", zLimitCounter);
+  }
+}
+
+// ─── HOMING (identical to reference sketch) ──────────────────────────────
+void doHoming() {
+  homeAxis(motorX, X_LIMIT_PIN, X_HOMING_SPEED, "X");
+  delay(500);
+  homeAxis(motorY, Y_LIMIT_PIN, Y_HOMING_SPEED, "Y");
+  delay(500);
+  homeAxis(motorZ, Z_LIMIT_PIN, Z_HOMING_SPEED, "Z");
+  delay(500);
+  motorR.setCurrentPosition(0);
+}
+
+void homeAxis(AccelStepper &motor, int limitPin, float speed, const char* axisName) {
   Serial.print("Homing ");
   Serial.print(axisName);
   Serial.println(" axis...");
 
-  unsigned long startTime = millis();
   motor.setSpeed(speed);
 
+  // NC + INPUT_PULLUP: not pressed = LOW, pressed = HIGH
   while (digitalRead(limitPin) == LOW) {
     motor.runSpeed();
-
-    if (millis() - startTime > HOMING_TIMEOUT_MS) {
-      Serial.print("ERR homing timeout on ");
-      Serial.println(axisName);
-      return false;
-    }
   }
 
   motor.setSpeed(0);
   motor.setCurrentPosition(0);
 
-  Serial.print("OK ");
   Serial.print(axisName);
-  Serial.println(" homed");
-  return true;
+  Serial.println(" axis homed.");
 }
 
-bool homeZAxisWithA() {
-  Serial.println("Homing Z axis with mirrored A axis...");
+// ─── LIMIT-PROTECTED RUN (identical to reference sketch) ─────────────────
+void runMotorWithLimit(
+  AccelStepper &motor, int limitPin, bool limitIsPositive,
+  const char* axisName, byte &limitCounter
+) {
+  long distance = motor.distanceToGo();
+  bool movingPositive = distance > 0;
+  bool movingNegative = distance < 0;
 
-  unsigned long startTime = millis();
-  motorZ.setSpeed(Z_HOMING_SPEED);
-  motorA.setSpeed(Z_HOMING_SPEED);
+  bool movingTowardLimit =
+    (limitIsPositive && movingPositive) ||
+    (!limitIsPositive && movingNegative);
 
-  while (digitalRead(Z_LIMIT_PIN) == LOW) {
-    motorZ.runSpeed();
-    motorA.runSpeed();
-
-    if (millis() - startTime > HOMING_TIMEOUT_MS) {
-      Serial.println("ERR homing timeout on Z");
-      return false;
+  if (movingTowardLimit) {
+    bool switchPressed = digitalRead(limitPin) == HIGH;
+    if (switchPressed) {
+      if (limitCounter < LIMIT_DEBOUNCE_COUNT) limitCounter++;
+    } else {
+      limitCounter = 0;
     }
-  }
-
-  motorZ.setSpeed(0);
-  motorA.setSpeed(0);
-  motorZ.setCurrentPosition(0);
-  motorA.setCurrentPosition(0);
-
-  Serial.println("OK Z homed");
-  return true;
-}
-
-bool homeCommand(String axis) {
-  axis.trim();
-  axis.toUpperCase();
-
-  bool ok = true;
-
-  if (axis == "" || axis == "X") {
-    ok = homeSingleAxis(motorX, X_LIMIT_PIN, X_HOMING_SPEED, "X") && ok;
-    delay(300);
-  }
-
-  if (axis == "" || axis == "Y") {
-    ok = homeSingleAxis(motorY, Y_LIMIT_PIN, Y_HOMING_SPEED, "Y") && ok;
-    delay(300);
-  }
-
-  if (axis == "" || axis == "Z") {
-    ok = homeZAxisWithA() && ok;
-    delay(300);
-  }
-
-  if (axis != "" && axis != "X" && axis != "Y" && axis != "Z") {
-    Serial.println("ERR unknown home axis");
-    return false;
-  }
-
-  if (ok) {
-    Serial.println("OK homing complete");
-    printPosition();
-  }
-
-  return ok;
-}
-
-String nextToken(String &s) {
-  s.trim();
-  if (s.length() == 0) return "";
-
-  int idx = s.indexOf(' ');
-  if (idx == -1) {
-    String token = s;
-    s = "";
-    token.trim();
-    return token;
-  }
-
-  String token = s.substring(0, idx);
-  s = s.substring(idx + 1);
-  token.trim();
-  return token;
-}
-
-void handleMoveCommand(String args) {
-  float targetX = currentXmm();
-  float targetY = currentYmm();
-  float targetZ = currentZmm();
-  float targetR = currentRdeg();
-
-  while (args.length() > 0) {
-    String token = nextToken(args);
-    if (token.length() == 0) continue;
-
-    token.replace("=", "");
-    token.toUpperCase();
-
-    char axis = token.charAt(0);
-    String valueString = token.substring(1);
-
-    // Also support: MOVE X 10 instead of MOVE X10
-    if (valueString.length() == 0 && args.length() > 0) {
-      valueString = nextToken(args);
-    }
-
-    float value = valueString.toFloat();
-
-    if (axis == 'X') targetX = value;
-    else if (axis == 'Y') targetY = value;
-    else if (axis == 'Z') targetZ = value;
-    else if (axis == 'R') targetR = value;
-    else {
-      Serial.print("ERR unknown MOVE axis: ");
-      Serial.println(axis);
+    if (limitCounter >= LIMIT_DEBOUNCE_COUNT) {
+      long current = motor.currentPosition();
+      motor.moveTo(current);
+      motor.setSpeed(0);
+      Serial.print("LIMIT HIT on ");
+      Serial.print(axisName);
+      Serial.println(" axis. Motor stopped.");
+      limitCounter = 0;
       return;
     }
+  } else {
+    limitCounter = 0;
   }
 
-  moveToMm(targetX, targetY, targetZ, targetR);
-  Serial.println("OK moving");
+  motor.run();
 }
 
-void handleOldStepCommand(String axis, long steps) {
-  axis.toUpperCase();
-
-  Serial.print("Command: ");
-  Serial.print(axis);
-  Serial.print(" ");
-  Serial.println(steps);
-
-  if (axis == "X") {
-    motorX.move(steps);
-  }
-  else if (axis == "Y") {
-    motorY.move(steps);
-  }
-  else if (axis == "Z") {
-    motorZ.move(steps);
-    motorA.move(steps); // keep both Z motors synchronized
-  }
-  else if (axis == "A") {
-    motorA.move(steps); // manual A-only command kept for debugging
-  }
-  else if (axis == "R") {
-    motorR.move(steps);
-  }
-  else if (axis == "ALL") {
-    motorX.move(steps);
-    motorY.move(steps);
-    motorZ.move(steps);
-    motorA.move(steps);
-    motorR.move(steps);
-  }
-  else {
-    Serial.println("ERR unknown motor command");
-  }
+// ─── REPORTING ───────────────────────────────────────────────────────────
+void reportPosition() {
+  Serial.print("X:");  Serial.print(motorX.currentPosition());
+  Serial.print(" Y:"); Serial.print(motorY.currentPosition());
+  Serial.print(" Z:"); Serial.print(motorZ.currentPosition());
+  Serial.print(" R:"); Serial.println(motorR.currentPosition());
 }
 
-void handleCommand(String command) {
-  command.trim();
-  if (command.length() == 0) return;
-
-  String lowerCommand = command;
-  lowerCommand.toLowerCase();
-
-  if (lowerCommand == "on") {
-    vacuumOn();
-    return;
-  }
-
-  if (lowerCommand == "off") {
-    vacuumOff();
-    return;
-  }
-
-  String upperCommand = command;
-  upperCommand.toUpperCase();
-
-  if (upperCommand == "STATUS") {
-    printPosition();
-    Serial.println("OK");
-    return;
-  }
-
-  if (upperCommand == "ZERO") {
-    zeroAllAxes();
-    return;
-  }
-
-  if (upperCommand == "STOP") {
-    stopAllMotorsNow();
-    return;
-  }
-
-  if (upperCommand.startsWith("SPEED")) {
-    String speedString = command.substring(5);
-    speedString.trim();
-    float speed = speedString.toFloat();
-    if (speed <= 0) {
-      Serial.println("ERR invalid speed");
-      return;
-    }
-    setupSpeeds(speed);
-    Serial.print("OK speed=");
-    Serial.println(speed);
-    return;
-  }
-
-  if (upperCommand == "VAC ON") {
-    vacuumOn();
-    return;
-  }
-
-  if (upperCommand == "VAC OFF") {
-    vacuumOff();
-    return;
-  }
-
-  if (upperCommand == "PICK") {
-    moveZToMm(Z_PICK);
-    runUntilDone();
-    vacuumOn();
-    delay(300);
-    moveZToMm(Z_TRAVEL);
-    runUntilDone();
-    Serial.println("OK pick done");
-    return;
-  }
-
-  if (upperCommand == "PLACE") {
-    moveZToMm(Z_PLACE);
-    runUntilDone();
-    vacuumOff();
-    delay(300);
-    moveZToMm(Z_TRAVEL);
-    runUntilDone();
-    Serial.println("OK place done");
-    return;
-  }
-
-  if (upperCommand == "HOME") {
-    homeCommand("");
-    return;
-  }
-
-  if (upperCommand.startsWith("HOME ")) {
-    String axis = command.substring(5);
-    homeCommand(axis);
-    return;
-  }
-
-  if (upperCommand.startsWith("MOVE")) {
-    String args = command.substring(4);
-    handleMoveCommand(args);
-    return;
-  }
-
-  // Old style commands: "X 200", "Y -100", "ALL 100", etc.
-  int spaceIndex = command.indexOf(' ');
-  if (spaceIndex != -1) {
-    String axis = command.substring(0, spaceIndex);
-    String stepsString = command.substring(spaceIndex + 1);
-    axis.trim();
-    stepsString.trim();
-
-    long steps = stepsString.toInt();
-    handleOldStepCommand(axis, steps);
-    return;
-  }
-
-  Serial.println("ERR invalid command");
-}
-
-void setup() {
-  Serial.begin(9600);
-
-  pinMode(ENABLE_PIN, OUTPUT);
-  digitalWrite(ENABLE_PIN, LOW); // LOW = enable CNC shield motors
-
-  pinMode(ROT_ENABLE_PIN, OUTPUT);
-  digitalWrite(ROT_ENABLE_PIN, LOW); // LOW = enable rotation motor driver
-
-  pinMode(PUMP_PIN, OUTPUT);
-  digitalWrite(PUMP_PIN, LOW); // Pump OFF at start
-
-  pinMode(X_LIMIT_PIN, INPUT_PULLUP);
-  pinMode(Y_LIMIT_PIN, INPUT_PULLUP);
-  pinMode(Z_LIMIT_PIN, INPUT_PULLUP);
-
-  // Keep your mirrored A motor behavior.
-  motorA.setPinsInverted(true, false, true);
-
-  setupSpeeds(20.0);
-
-  printHelp();
-  printPosition();
-}
-
-void loop() {
-  if (Serial.available()) {
-    String command = Serial.readStringUntil('\n');
-    handleCommand(command);
-  }
-
-  runAllMotors();
-  printPositionIfChanged();
+void printSwitches() {
+  Serial.print("X limit: "); Serial.print(digitalRead(X_LIMIT_PIN));
+  Serial.print(" | Y limit: "); Serial.print(digitalRead(Y_LIMIT_PIN));
+  Serial.print(" | Z limit: "); Serial.println(digitalRead(Z_LIMIT_PIN));
+  Serial.println("With NC + INPUT_PULLUP: 0 = not pressed, 1 = pressed/open");
 }
