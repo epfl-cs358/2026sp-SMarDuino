@@ -138,7 +138,8 @@ The final electronic architecture of the project has been assembled.
 This setup allows the machine to perform the full pick-and-place workflow:
 homing, component pickup, camera alignment, and PCB placement.
 **Circuit Schematic:**
-![Electronics Diagram](<img width="1451" height="770" alt="Capture d&#39;écran 2026-05-21 030021" src="https://github.com/user-attachments/assets/d6a49caf-2faa-4bd9-badd-0593c9f2a8b9" />)
+![Electronics Diagram]()
+(<img width="1451" height="770" alt="Capture d&#39;écran 2026-05-21 030021" src="https://github.com/user-attachments/assets/d6a49caf-2faa-4bd9-badd-0593c9f2a8b9" />
 
 
 
