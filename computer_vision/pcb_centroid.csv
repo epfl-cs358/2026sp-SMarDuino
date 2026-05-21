@@ -1,7 +1,0 @@
-# PCB Centroid — example file
-Designator,X,Y,Rotation,Layer,Footprint
-R1,10.5,20.3,90,Top,R_Axial_DIN0207
-R2,15.0,20.3,270,Top,R_Axial_DIN0207
-C1,25.2,18.7,0,Top,C_Disc_D5.0mm
-LED1,30.0,15.0,0,Top,LED_D5.0mm
-U1,50.0,40.0,0,Top,DIP-8

@@ -1,9 +1,0 @@
-# PCB Centroid — SMD example
-# Footprints match orientation_engine / footprint_envelopes conventions.
-# Rotation is CCW-positive degrees (KiCad convention).
-Designator,X,Y,Rotation,Layer,Footprint
-R1,10.5,20.3,90,Top,R_0805
-R2,15.0,20.3,270,Top,R_0805
-C1,25.2,18.7,0,Top,C_0805
-LED1,30.0,15.0,0,Top,LED_0805
-U1,50.0,40.0,0,Top,SOIC-8
