@@ -141,6 +141,17 @@ homing, component pickup, camera alignment, and PCB placement.
 ![Electronics Diagram]()
 (<img width="1451" height="770" alt="Capture d&#39;écran 2026-05-21 030021" src="https://github.com/user-attachments/assets/d6a49caf-2faa-4bd9-badd-0593c9f2a8b9" />
 
+**Step by step guide to connect everything:**
+
+1. **Shield Assembly**: Plug the **RAMPS 1.4** shield onto the **Arduino Mega 2560**. Ensure all pins align perfectly.
+2. **Motor Drivers**: Insert the **A4988 drivers** into the X, Y, Z, and E0/E1 slots. 
+   *⚠️ Important: Check the orientation of the potentiometer on the driver to avoid burning the board!*
+3. **Stepper Motors**: Connect the 5 NEMA 17 stepper motors to the 4-pin headers on the RAMPS shield .
+4. **Vacuum Pump & MOSFET**: Connect the **RF370 air pump**  through the **MOSFET**  to allow the Arduino to switch it on/off.
+5. **Voltage Regulation**: Connect the **LM2596 buck converter**  to step down the voltage where needed .
+6. **Limit Switches**: Connect the 3 limit switches  to the pins on the top-left of the RAMPS board to enable homing.
+7. **Power Supply**: Connect the **12V power supply** to the RAMPS green screw terminals. Use separate rails for the motors and logic as shown in the diagram to ensure stability.
+
 
 
 
