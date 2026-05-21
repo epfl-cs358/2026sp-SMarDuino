@@ -76,7 +76,7 @@ Comprehensive list of elements we used in our project along with needed equipmen
 
 **buy:**
 *   **Arduino Mega 2560** Board
-*   **RAMPS 1.4** Shield
+*   **cnc** Shield
 *   5 Stepper motors **17HS4401** + **A4988 Drivers**
 *   **Air pump RF370**
 *   Air pump tubes (interior diameter 2.5mm and 4mm)
@@ -86,7 +86,7 @@ Comprehensive list of elements we used in our project along with needed equipmen
 *   Power supply **12V 10A**
 *   Power supply **12V 5A**
 *   2m **Purecrea GT2 belt** (6mm)
-*   2 DC Jack / Terminal block adapters (adaptateur bornier)
+*   2 DC Jack
 *   M3 and M4 Screws and nuts
 *   Lightening rings
 
@@ -94,7 +94,7 @@ Comprehensive list of elements we used in our project along with needed equipmen
 *   **Prusa i3 MK3S+** 3D printer (to be modified)
 *   3D printer with **PETG filament** (for custom parts)
 *   Laser cutting machine
-*   **MDF or Aluminum board** (for the base plate)
+*   **MDF board** (for the base plate)
 *   Soldering kit
 *   Bunch of different screwdrivers
 *   Driller
@@ -125,15 +125,11 @@ Inspired by the **LumenPnP** open-source community, our feeding system is **full
 *   **Design Efficiency**: 
     *   **Scalable**: New feeders can be added to the base plate without needing additional motor drivers or wiring.
 
-### 2. Automatic Nozzle Changer
-To handle different SMD sizes, the machine features a **3D-printed rack**. The software automatically docks the current nozzle and picks a new one without human intervention.
-
 ---
 
 ## ⚡ Electronics & Power
 To avoid electrical noise, we implemented a **Dual Power Supply** system:
 1.  **PSU A (12V/10A)**: Dedicated to the 5 high-current stepper motors.
-2.  **PSU B (12V/5A)**: Dedicated to the Arduino, Servos, and the Vacuum Pump.
 
 
 ## Electronics Assembly
