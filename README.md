@@ -71,7 +71,6 @@ At the end of this semester, SMarDuino functions as an autonomous Cartesian.
 ---
 
 ## 📦 Prerequisites
-## Prerequisites
 Comprehensive list of elements we used in our project along with needed equipment. To construct the device, one should
 
 **buy:**
@@ -165,7 +164,45 @@ SMarDuino runs on a three-tier software architecture:
 *   **Layer 3 (UI)**: A web dashboard to upload PCB design files (CSV) and monitor the placement progress in real-time.
 
 ---
+## 💻 Software Architecture
 
+### 🎨 Frontend 
+The interface is a **Next.js WebApp** that serves as the machine's control center.
+*   **Role**: It acts as a visual serial monitor. It allows the user to upload `.pos` files (exported from KiCad/Altium) which contain the coordinates and rotations of all components.
+*   **Data Flow**: The app converts the `.pos` data into a structured **JSON** format, which is then sent to the backend for processing.
+*   **Tech Stack**: React, TypeScript, Tailwind CSS.
+
+### ⚙️ Backend & Motion Control 
+The backend is powered by a **Flask server** (Python) that orchestrates the automation workflow.
+
+**The Command Pipeline:**
+1.  **Parsing**: Transforms JSON coordinates into Python floats.
+2.  **G-Code Generation**: Converts coordinates into standardized serial commands (e.g., `M X22 Y33 Z44`).
+3.  **Serial Communication**: Streams these commands via the COM port to the Arduino Mega.
+
+**Motion Logic:**
+*   **Homing Procedure**: Uses NC (Normally Closed) limit switches with a specialized **backoff movement** to ensure high-precision reference positioning (X0, Y0, Z0).
+*   **Automated Sequence**: 
+    `Homing` ➡️ `Move to Feeder` ➡️ `Pick (Vacuum ON)` ➡️ `Move to Camera (Alignment)` ➡️ `Place (Vacuum OFF)` ➡️ `Return to Home`.
+
+### 👁️ Computer Vision
+The CV module is the "brain" that ensures placement accuracy by detecting offsets in real-time.
+
+**Detection Logic:**
+Initially based on color, the system was upgraded to a **Brightness/Contrast-based detection** (HSV Value channel extraction) to handle metallic and black SMD components regardless of ambient light.
+
+*   **Pre-processing**: Noise elimination and pad filtering using a circularity threshold (< 0.8) to stabilize classification.
+*   **Advanced Lighting**: Integration of a **Custom Ring Light + Diffuser** (3D printed) to remove light "blobs" and ensure homogeneous diffusion.
+*   **Feature Extraction**:
+    *   Isolates metallic leads from dark backgrounds/nozzles.
+    *   Detects component center coordinates and precise rotation angles.
+    *   Converts visual pixel errors into motor steps for real-time correction.
+*   **Supported Classification**: Resistors, Capacitors, LEDs, and Timers.
+*   ## 🚀 Getting Started (Software)
+
+### Frontend Setup
+
+---
 ## ⚠️ Key Challenges & Solutions
 
 | Problem | Solution |
@@ -173,8 +210,9 @@ SMarDuino runs on a three-tier software architecture:
 | **Sticky Components** | Implemented a **Y-junction pneumatic circuit** with a "Blow-off" pulse to cleanly release parts. |
 | **Tube Twisting** | Integrated **Sealing Bearings** and software rotation limits (-90° to +90°). |
 | **Precision** | Leveraged the MK3S+ micro-stepping capabilities for high repeatability. |
-
 ---
+
+
 
 ## 📅 Milestones
 *   [x] **Milestone 1**: Mechanical conversion and basic XYZ motion control.
@@ -183,9 +221,5 @@ SMarDuino runs on a three-tier software architecture:
 
 ---
 
-## Software
-We are building a Next.js App for the interface and a Flask server for machine control.
 
-### Frontend
-Written in TypeScript, it allows the user to upload CSV files containing component coordinates and monitor the placement progress.
 
