@@ -225,19 +225,19 @@ It will be available at  http://localhost:3000
 ### 3. Backend (Flask + OpenCV)
 Windows :
 ```bash
-cd computer_vision_MIT
+cd computer_vision
 python -m venv venv
 venv\Scripts\activate
 pip install flask opencv-python pyserial numpy
-python main.py
+python run_placement.py
 ```
 Linux/Mac :
 ```bash
-cd computer_vision_MIT
+cd computer_vision
 python3 -m venv venv
 source venv/bin/activate
 pip install flask opencv-python pyserial numpy
-python3 main.py
+python3 run_placement.py
 ```
 The flask server runs on: http://localhost:5000
 
@@ -255,7 +255,7 @@ Click **Upload**
 
 
 ### 5. Configuration
-In the backend/config.py, put on these parameters :
+In the 3d-placer-monitor/config.json, put on these parameters :
 ```bash
 pythonSERIAL_PORT = "COM3"        # Windows : COM3 / Linux : /dev/ttyUSB0
 BAUD_RATE   = 115200
