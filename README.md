@@ -200,7 +200,65 @@ Initially based on color, the system was upgraded to a **Brightness/Contrast-bas
 *   **Supported Classification**: Resistors, Capacitors, LEDs, and Timers.
 *   ## 🚀 Getting Started (Software)
 
-### Frontend Setup
+### 1️⃣ Prerequisites
+*   **Node.js** (v18+)
+*   **Python** (3.10+)
+*   **Arduino IDE**
+
+### 2️⃣ Clone & Setup
+
+1. Clone the project
+bashgit clone https://github.com/your-org/smArduino.git
+cd smArduino
+
+2. Frontend (Next.js)
+bashcd frontend
+npm install
+npm run dev
+It will be available at  http://localhost:3000
+
+4. Backend (Flask + OpenCV)
+Windows :
+bashcd backend
+python -m venv venv
+venv\Scripts\activate
+pip install flask opencv-python pyserial numpy
+python app.py
+Linux/Mac :
+bashcd backend
+python3 -m venv venv
+source venv/bin/activate
+pip install flask opencv-python pyserial numpy
+python app.py
+The flask server runs on: http://localhost:5000
+
+6. Firmware Arduino
+
+Launch the Arduino IDE
+Go to File > Open and load firmware/smArduino.ino
+In Tools > Board, Select Arduino Mega 2560
+In Tools > Port, select the COM port of the board (ex: COM3 on Windows, /dev/ttyUSB0 on Linux)
+Click Upload ⬆️
+
+
+5. Configuration
+In the backend/config.py, put on these parameters :
+pythonSERIAL_PORT = "COM3"        # Windows : COM3 / Linux : /dev/ttyUSB0
+BAUD_RATE   = 115200
+CAMERA_ID   = 0             # Index of the USB camera (0, 1, 2...)
+STEPS_PER_MM_X = 80
+STEPS_PER_MM_Y = 80
+STEPS_PER_MM_Z = 400
+
+6. Start the session
+Make sure that :
+
+✅ Arduino is flashed and connected via USB
+✅ Backend Flask is running
+✅ Frontend Next.js running
+Run http://localhost:3000
+Import .pos file exported from KiCad/Altium
+Click on Start — the machine will do the homing and start the placement of the components
 
 ---
 ## ⚠️ Key Challenges & Solutions
