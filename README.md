@@ -167,7 +167,7 @@ SMarDuino runs on a three-tier software architecture:
 ## 💻 Software Architecture
 
 ### 🎨 Frontend 
-The interface is a **Next.js WebApp** that serves as the machine's control center.
+The interface is a **Node.js WebApp** that serves as the machine's control center.
 *   **Role**: It acts as a visual serial monitor. It allows the user to upload `.pos` files (exported from KiCad/Altium) which contain the coordinates and rotations of all components.
 *   **Data Flow**: The app converts the `.pos` data into a structured **JSON** format, which is then sent to the backend for processing.
 *   **Tech Stack**: React, TypeScript, Tailwind CSS.
@@ -207,58 +207,76 @@ Initially based on color, the system was upgraded to a **Brightness/Contrast-bas
 
 ### 2️⃣ Clone & Setup
 
-1. Clone the project
-bashgit clone https://github.com/your-org/smArduino.git
-cd smArduino
 
-2. Frontend (Next.js)
-bashcd frontend
+### 1. Clone the Project
+```bash
+git clone https://github.com/epfl-cs358/2026sp-SMarDuino.git
+cd 2026sp-SMarDuino
+```
+
+### 2. Frontend (Node.js)
+```bash
+cd 3d-placer-monitor
 npm install
-npm run dev
+node server.js
+```
 It will be available at  http://localhost:3000
 
-4. Backend (Flask + OpenCV)
+### 3. Backend (Flask + OpenCV)
 Windows :
-bashcd backend
+```bash
+cd computer_vision_MIT
 python -m venv venv
 venv\Scripts\activate
 pip install flask opencv-python pyserial numpy
-python app.py
+python main.py
+```
 Linux/Mac :
-bashcd backend
+```bash
+cd computer_vision_MIT
 python3 -m venv venv
 source venv/bin/activate
 pip install flask opencv-python pyserial numpy
-python app.py
+python3 main.py
+```
 The flask server runs on: http://localhost:5000
 
-6. Firmware Arduino
+### 4. Firmware Arduino
 
-Launch the Arduino IDE
-Go to File > Open and load firmware/smArduino.ino
-In Tools > Board, Select Arduino Mega 2560
-In Tools > Port, select the COM port of the board (ex: COM3 on Windows, /dev/ttyUSB0 on Linux)
-Click Upload ⬆️
+Launch the **Arduino IDE**
+
+Go to File > Open and load 3d-placer-monitor/placer_4axis/placer_4axis.ino
+
+In **Tools** > **Board**, Select **Arduino Mega 2560**
+
+In **Tools** > **Port**, select the COM port of the board (ex: COM3)
+
+Click **Upload** 
 
 
-5. Configuration
+### 5. Configuration
 In the backend/config.py, put on these parameters :
+```bash
 pythonSERIAL_PORT = "COM3"        # Windows : COM3 / Linux : /dev/ttyUSB0
 BAUD_RATE   = 115200
 CAMERA_ID   = 0             # Index of the USB camera (0, 1, 2...)
 STEPS_PER_MM_X = 80
 STEPS_PER_MM_Y = 80
 STEPS_PER_MM_Z = 400
+```
 
 6. Start the session
 Make sure that :
 
 ✅ Arduino is flashed and connected via USB
+
 ✅ Backend Flask is running
+
 ✅ Frontend Next.js running
+
 Run http://localhost:3000
-Import .pos file exported from KiCad/Altium
-Click on Start — the machine will do the homing and start the placement of the components
+Import **.pos** file exported from KiCad/Altium
+Click on **Start** — the machine will do the homing and start the placement of the components
 
 ---
 ## ⚠️ Key Challenges & Solutions
