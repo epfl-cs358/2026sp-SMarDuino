@@ -151,6 +151,35 @@ homing, component pickup, camera alignment, and PCB placement.
 ![Electronics Diagram]()
 (<img width="1451" height="770" alt="Capture d&#39;écran 2026-05-21 030021" src="https://github.com/user-attachments/assets/d6a49caf-2faa-4bd9-badd-0593c9f2a8b9" />
 
+###  Electronics Assembly of the CV
+
+To support the Computer Vision module, a custom illumination system was developed. This ensures consistent lighting conditions for the HSV extraction algorithm.
+
+#### 1. Hardware Components
+* **Microcontroller**: Arduino Uno Rev3.
+* **Light Source**: LED Ring (controlled via Digital Pins).
+* **Housing**: Custom 3D-printed diffuser designed to eliminate reflections on metallic SMD components.
+
+#### 2. Wiring Diagram
+Based on the implementation, the connections are as follows:
+
+| Ring Light Wire | Arduino Pin | Function |
+| :--- | :--- | :--- |
+| **Red** | **5V** | Power Supply (Stable 5V for LED consistency) |
+| **Black** | **GND** | Ground |
+| **Purple** | **D10** | Signal / Control Pin A |
+| **Yellow** | **D11** | Signal / Control Pin B |
+
+> [!IMPORTANT]
+> Always use the **5V** pin instead of *Vin* when powering from USB to ensure the LED ring receives a regulated voltage, which is critical for maintaining stable brightness during image processing.
+
+#### 3. Visual Setup
+
+  ![CV](./images/computer_vision_electronics1.jpeg)
+  ![CV](./images/computer_vision_electronics2.jpeg)
+  ![CV](./images/computer_vision_electronics3.jpeg)
+
+
 
 ( [Back to top](#-table-of-contents) )
 
@@ -193,11 +222,10 @@ The backend is powered by a **Flask server** (Python) that orchestrates the auto
 ### 👁️ Computer Vision
 The CV module is the "brain" that ensures placement accuracy by detecting offsets in real-time.
 
-**Detection Logic:**
-Initially based on color, the system was upgraded to a **Brightness/Contrast-based detection** (HSV Value channel extraction) to handle metallic and black SMD components regardless of ambient light.
-
+*   **Detection Logic**: Initially based on color, the system was upgraded to a Brightness/Contrast-based detection (HSV Value channel extraction) to handle metallic and black SMD components regardless of ambient light.
 *   **Pre-processing**: Noise elimination and pad filtering using a circularity threshold (< 0.8) to stabilize classification.
-*   **Advanced Lighting**: Integration of a **Custom Ring Light + Diffuser** (3D printed) to remove light "blobs" and ensure homogeneous diffusion.
+*   **Advanced Lighting**: Integration of a **[Custom Ring Light](#electronics-assembly)** + Diffuser (3D printed) to remove light "blobs" and ensure homogeneous diffusion. 
+    > *See the [Wiring & Electronics section](#electronics-assembly) for the hardware implementation.*
 *   **Feature Extraction**:
     *   Isolates metallic leads from dark backgrounds/nozzles.
     *   Detects component center coordinates and precise rotation angles.
