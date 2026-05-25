@@ -188,6 +188,8 @@ The backend is powered by a **Flask server** (Python) that orchestrates the auto
 *   **Automated Sequence**: 
     `Homing` ➡️ `Move to Feeder` ➡️ `Pick (Vacuum ON)` ➡️ `Move to Camera (Alignment)` ➡️ `Place (Vacuum OFF)` ➡️ `Return to Home`.
 
+    ![Architecture](./images/placement-component.png)
+
 ### 👁️ Computer Vision
 The CV module is the "brain" that ensures placement accuracy by detecting offsets in real-time.
 
