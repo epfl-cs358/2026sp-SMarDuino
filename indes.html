@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Architecture Pick & Place</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .arrow-down {
+            width: 2px; height: 30px; background: #9ca3af; position: relative; margin: 5px auto;
+        }
+        .arrow-down::after {
+            content: ''; position: absolute; bottom: 0; left: -4px;
+            border-left: 5px solid transparent; border-right: 5px solid transparent;
+            border-top: 8px solid #9ca3af;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 p-10 flex justify-center">
+
+    <div class="max-w-4xl w-full">
+        <!-- LAYER 3 -->
+        <div class="bg-[#f0f0ff] border border-[#dadaf5] rounded-[2rem] p-6 mb-2">
+            <h2 class="text-[#4a4a8c] font-bold text-xl">Layer 3 — UI</h2>
+            <p class="text-[#6366f1] text-sm mb-4">React · TypeScript · Node.js</p>
+            <div class="flex gap-4">
+                <button onclick="alert('Dashboard')" class="flex-1 bg-white/50 border-2 border-[#c7c7f0] p-4 rounded-xl hover:bg-white transition font-semibold text-[#3f3f7a]">Dashboard web</button>
+                <button onclick="alert('Import')" class="flex-1 bg-white/50 border-2 border-[#c7c7f0] p-4 rounded-xl hover:bg-white transition font-semibold text-[#3f3f7a]">Import .pos (KiCad)</button>
+                <button onclick="alert('Monitor')" class="flex-1 bg-white/50 border-2 border-[#c7c7f0] p-4 rounded-xl hover:bg-white transition font-semibold text-[#3f3f7a]">Monitor temps réel</button>
+            </div>
+        </div>
+
+        <div class="text-center text-xs text-gray-500 font-mono">JSON coords<div class="arrow-down"></div></div>
+
+        <!-- LAYER 2 -->
+        <div class="bg-[#e8f5f0] border border-[#cce5dc] rounded-[2rem] p-6 mb-2">
+            <h2 class="text-[#1e5644] font-bold text-xl">Layer 2 — Vision</h2>
+            <p class="text-[#10b981] text-sm mb-4">Python · Flask · OpenCV</p>
+            <div class="flex gap-4">
+                <button onclick="alert('Flask')" class="flex-1 bg-white/50 border-2 border-[#b5d9cc] p-4 rounded-xl hover:bg-white transition font-semibold text-[#164e3c]">Flask server</button>
+                <button onclick="alert('Detection')" class="flex-1 bg-white/50 border-2 border-[#b5d9cc] p-4 rounded-xl hover:bg-white transition font-semibold text-[#164e3c]">OpenCV detection</button>
+                <button onclick="alert('Logic')" class="flex-1 bg-white/50 border-2 border-[#b5d9cc] p-4 rounded-xl hover:bg-white transition font-semibold text-[#164e3c]">Pixel → motor steps</button>
+            </div>
+        </div>
+
+        <div class="text-center text-xs text-gray-500 font-mono">G-Code serial<div class="arrow-down"></div></div>
+
+        <!-- LAYER 1 -->
+        <div class="bg-[#fdf0e9] border border-[#f5dcd4] rounded-[2rem] p-6">
+            <h2 class="text-[#7c2d12] font-bold text-xl">Layer 1 — Firmware</h2>
+            <p class="text-[#ea580c] text-sm mb-4">Arduino Mega · C++</p>
+            <div class="flex gap-4">
+                <button onclick="alert('Interpreter')" class="flex-1 bg-white/50 border-2 border-[#ecc3b8] p-4 rounded-xl hover:bg-white transition font-semibold text-[#9a3412]">G-Code interpreter</button>
+                <button onclick="alert('Motion')" class="flex-1 bg-white/50 border-2 border-[#ecc3b8] p-4 rounded-xl hover:bg-white transition font-semibold text-[#9a3412]">XYZ motion + homing</button>
+                <button onclick="alert('Vacuum')" class="flex-1 bg-white/50 border-2 border-[#ecc3b8] p-4 rounded-xl hover:bg-white transition font-semibold text-[#9a3412]">Vacuum solenoid</button>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="mt-8 flex items-center gap-4">
+            <div class="h-[1px] bg-gray-300 flex-1"></div>
+            <p class="text-xs text-gray-500">Machine physique (moteurs pas-à-pas, caméra USB, ring light)</p>
+            <div class="h-[1px] bg-gray-300 flex-1"></div>
+        </div>
+    </div>
+
+</body>
+</html>
