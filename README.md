@@ -79,13 +79,12 @@ Comprehensive list of elements we used in our project along with needed equipmen
 *   5 Stepper motors **17HS4401** + **A4988 Drivers**
 *   **Air pump RF370**
 *   Air pump tubes (interior diameter 2.5mm and 4mm)
-*   5 Air pump bearings (6mm inner)
 *   **USB bottom camera**
 *   **USB isolator**
 *   Power supply **12V 10A**
-*   Power supply **12V 5A**
 *   2m **Purecrea GT2 belt** (6mm)
-*   2 DC Jack
+*   DC Jack
+*   One buck convertor
 *   M3 and M4 Screws and nuts
 *   Lightening rings
 
