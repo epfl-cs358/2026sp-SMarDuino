@@ -128,6 +128,7 @@ Inspired by the **LumenPnP** open-source community, our feeding system is **full
 ## ⚡ Electronics & Power
 To avoid electrical noise, we implemented a **Dual Power Supply** system:
 1.  **PSU A (12V/10A)**: Dedicated to the 5 high-current stepper motors.
+2.  **BUCK Convertor** : from 12V to 5V for the pump
 
 
 ## Electronics Assembly
