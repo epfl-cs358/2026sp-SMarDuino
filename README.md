@@ -202,7 +202,7 @@ SMarDuino runs on a three-tier software architecture:
 The interface is a **Node.js WebApp** that serves as the machine's control center.
 *   **Role**: It acts as a visual serial monitor. It allows the user to upload `.pos` files (exported from KiCad/Altium) which contain the coordinates and rotations of all components.
 *   **Data Flow**: The app converts the `.pos` data into a structured **JSON** format, which is then sent to the backend for processing.
-*   **Tech Stack**: React, TypeScript, Tailwind CSS.
+*   **Tech Stack**: React, JavaScript, Tailwind CSS.
 
 ### ⚙️ Backend & Motion Control 
 The backend is powered by a **Flask server** (Python) that orchestrates the automation workflow.
@@ -221,6 +221,11 @@ The backend is powered by a **Flask server** (Python) that orchestrates the auto
 
 ### 👁️ Computer Vision
 The CV module is the "brain" that ensures placement accuracy by detecting offsets in real-time.
+
+
+👉 **[See all the detailed documentation of the CV](./computer_vision/README.md)**
+
+
 
 *   **Detection Logic**: Initially based on color, the system was upgraded to a Brightness/Contrast-based detection (HSV Value channel extraction) to handle metallic and black SMD components regardless of ambient light.
 *   **Pre-processing**: Noise elimination and pad filtering using a circularity threshold (< 0.8) to stabilize classification.
@@ -310,6 +315,16 @@ Make sure that :
 Run http://localhost:3000
 Import **.pos** file exported from KiCad/Altium
 Click on **Start** — the machine will do the homing and start the placement of the components
+
+---
+
+### 🔄 Software & CV Integration Bridge
+
+The integration between the **Flask Backend** and the **OpenCV Module** works through a closed-loop feedback system:
+//See with Khlil about the integration and add this part 
+
+**Workflow Diagram:**
+`Backend Logic` ⮕ `CV Analysis` ⮕ `Coordinate Correction` ⮕ `Arduino G-Code'
 
 ---
 ## ⚠️ Key Challenges & Solutions
