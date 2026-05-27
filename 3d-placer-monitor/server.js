@@ -12,11 +12,15 @@ const HTTP_PORT = 3000;
 const BAUD_RATE = parseInt(process.env.BAUD_RATE) || 9600;
 const CONFIG_FILE = path.join(__dirname, "config.json");
 
+// All coords are in STEPS (the Arduino sketch uses STEPS_PER_MM=1)
 const DEFAULT_CONFIG = {
-  pcb:    { x: 100, y: 100, rotation: 0 },
-  camera: { x: 50, y: 200 },
-  feeders: {},
-  zTravel: 10,
+  pcb:    { x: 0, y: 0, z: 0, rotation: 0 },   // PCB origin (corner) in steps
+  camera: { x: 0, y: 0, z: 0 },                 // Camera position + focal Z
+  feeders: {},                                  // each: { x, y, z }
+  zTravel: 0,                                   // safe flying height
+  stepsPerMm: 80,
+  workspace: { xMin: -22888, xMax: 0, yMin: 0, yMax: 17000, zMin: 0, zMax: 58000 },
+  manualComponents: [],   // for test placement: [{ ref, value, x, y, z, rotation }]
 };
 
 let machineConfig = loadConfig();
@@ -54,6 +58,9 @@ let serialConnected = false;
 let currentPortPath = process.env.SERIAL_PORT || null;
 let retryTimer = null;
 let pendingResolve = null;
+
+// Track current machine position from periodic reports
+const currentPos = { x: 0, y: 0, z: 0, r: 0 };
 
 function connectSerial(targetPort) {
   if (targetPort) currentPortPath = targetPort;
@@ -94,10 +101,10 @@ function connectSerial(targetPort) {
       const rM = line.match(/R[:\s]([-\d.]+)/i);
       if (xM || yM || zM || rM) {
         const pos = {};
-        if (xM) pos.x = parseFloat(xM[1]);
-        if (yM) pos.y = parseFloat(yM[1]);
-        if (zM) pos.z = parseFloat(zM[1]);
-        if (rM) pos.r = parseFloat(rM[1]);
+        if (xM) { pos.x = parseFloat(xM[1]); currentPos.x = pos.x; }
+        if (yM) { pos.y = parseFloat(yM[1]); currentPos.y = pos.y; }
+        if (zM) { pos.z = parseFloat(zM[1]); currentPos.z = pos.z; }
+        if (rM) { pos.r = parseFloat(rM[1]); currentPos.r = pos.r; }
         broadcast({ type: "position", ...pos });
       }
 
@@ -127,7 +134,7 @@ function connectSerial(targetPort) {
   }
 }
 
-function sendAndWait(cmd, timeoutMs = 30000) {
+function sendAndWait(cmd, timeoutMs = 60000) {
   return new Promise((resolve, reject) => {
     if (!port || !serialConnected) return reject(new Error("Serial not connected"));
     if (pendingResolve) return reject(new Error("Another command is pending"));
@@ -145,6 +152,17 @@ function sendAndWait(cmd, timeoutMs = 30000) {
     port.write(cmd + "\n");
     console.log("→ Arduino:", cmd);
   });
+}
+
+// Move to ABSOLUTE positions — Arduino's MOVE command is now absolute (moveTo)
+async function moveAbsolute(targets) {
+  const parts = [];
+  if (targets.x !== undefined && targets.x !== null) parts.push(`X${Math.round(targets.x)}`);
+  if (targets.y !== undefined && targets.y !== null) parts.push(`Y${Math.round(targets.y)}`);
+  if (targets.z !== undefined && targets.z !== null) parts.push(`Z${Math.round(targets.z)}`);
+  if (targets.r !== undefined && targets.r !== null) parts.push(`R${Math.round(targets.r)}`);
+  if (!parts.length) return;
+  await sendAndWait(`MOVE ${parts.join(" ")}`);
 }
 
 // ─── PLACEMENT ENGINE ───────────────────────────────────────────────────────
@@ -213,20 +231,51 @@ app.post("/api/placement/start", async (req, res) => {
   engine.start();
   res.json({ ok: true });
 });
+
+// Test/manual placement — components supplied directly with absolute machine coords
+app.post("/api/test-placement/start", async (req, res) => {
+  const { components: manualComponents } = req.body || {};
+  if (!Array.isArray(manualComponents) || manualComponents.length === 0) {
+    return res.status(400).json({ error: "No components provided" });
+  }
+  engine.loadManual(manualComponents, machineConfig);
+  engine.start();
+  res.json({ ok: true });
+});
 app.post("/api/placement/pause",  (req, res) => { engine.pause();        res.json({ ok: true }); });
 app.post("/api/placement/resume", (req, res) => { engine.resume();       res.json({ ok: true }); });
 app.post("/api/placement/stop",   (req, res) => { engine.stop();         res.json({ ok: true }); });
 app.post("/api/placement/skip",   (req, res) => { engine.skipCurrent();  res.json({ ok: true }); });
 
 app.post("/api/jog", async (req, res) => {
-  const { x, y, z, r } = req.body;
-  const parts = [];
-  if (x !== undefined) parts.push(`X${x}`);
-  if (y !== undefined) parts.push(`Y${y}`);
-  if (z !== undefined) parts.push(`Z${z}`);
-  if (r !== undefined) parts.push(`R${r}`);
-  try { await sendAndWait(`MOVE ${parts.join(" ")}`); res.json({ ok: true }); }
-  catch (e) { res.status(500).json({ error: e.message }); }
+  const { x, y, z, r, safe } = req.body;
+  try {
+    if (safe) {
+      // SAFE jog: lift to travel Z first, then move XY/R, then drop to target Z
+      const travelZ = machineConfig.zTravel || 0;
+      // 1. Lift to travel Z (only if not already at/above it on the right side)
+      await sendAndWait(`MOVE Z${Math.round(travelZ)}`);
+      // 2. Move XY (and R if specified)
+      const xyParts = [];
+      if (x !== undefined) xyParts.push(`X${Math.round(x)}`);
+      if (y !== undefined) xyParts.push(`Y${Math.round(y)}`);
+      if (r !== undefined) xyParts.push(`R${Math.round(r)}`);
+      if (xyParts.length) await sendAndWait(`MOVE ${xyParts.join(" ")}`);
+      // 3. Drop to target Z (if specified and different from travel)
+      if (z !== undefined && Math.round(z) !== Math.round(travelZ)) {
+        await sendAndWait(`MOVE Z${Math.round(z)}`);
+      }
+    } else {
+      // Direct jog (all axes simultaneously) — kept for backward compatibility
+      const parts = [];
+      if (x !== undefined) parts.push(`X${Math.round(x)}`);
+      if (y !== undefined) parts.push(`Y${Math.round(y)}`);
+      if (z !== undefined) parts.push(`Z${Math.round(z)}`);
+      if (r !== undefined) parts.push(`R${Math.round(r)}`);
+      if (parts.length) await sendAndWait(`MOVE ${parts.join(" ")}`);
+    }
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ─── AUTO-DETECT ────────────────────────────────────────────────────────────
