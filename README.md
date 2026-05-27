@@ -174,11 +174,11 @@ Based on the implementation, the connections are as follows:
 > Always use the **5V** pin instead of *Vin* when powering from USB to ensure the LED ring receives a regulated voltage, which is critical for maintaining stable brightness during image processing.
 
 #### 3. Visual Setup
-
-  ![CV](./images/computer_vision_electronics1.jpeg)
-  ![CV](./images/computer_vision_electronics2.jpeg)
-  ![CV](./images/computer_vision_electronics3.jpeg)
-
+<p align="center">
+  <img src="./images/computer_vision_electronics1.jpeg" width="30%" />
+  <img src="./images/computer_vision_electronics2.jpeg" width="30%" />
+  <img src="./images/computer_vision_electronics3.jpeg" width="30%" />
+</p>
 
 
 ( [Back to top](#-table-of-contents) )
@@ -213,9 +213,6 @@ Below are the two main views of the **3DPlacer Monitor** interface:
 | *Features: Live camera feed, absolute coordinate display, and raw serial communication logs.* | *Features: Interactive PCB layout map, feeder coordinate mapping, and placement sequence control.* |
 
 ---
-
-### ⚙️ Backend & Motion Control 
-The backend is powered by a **Flask server** (Python)...
 
 ### ⚙️ Backend & Motion Control 
 The backend is powered by a **Flask server** (Python) that orchestrates the automation workflow.
