@@ -198,11 +198,24 @@ SMarDuino runs on a three-tier software architecture:
 ---
 ## 💻 Software Architecture
 
-### 🎨 Frontend 
+### 🎨 Frontend & User Interface
 The interface is a **Node.js WebApp** that serves as the machine's control center.
-*   **Role**: It acts as a visual serial monitor. It allows the user to upload `.pos` files (exported from KiCad/Altium) which contain the coordinates and rotations of all components.
-*   **Data Flow**: The app converts the `.pos` data into a structured **JSON** format, which is then sent to the backend for processing.
+
+*   **Role**: It acts as a visual serial monitor and control station. It allows the user to upload `.pos` files (exported from KiCad/Altium) which contain the coordinates and rotations of all components.
 *   **Tech Stack**: React, JavaScript, Tailwind CSS.
+
+####  Dashboard Overview
+Below are the two main views of the **3DPlacer Monitor** interface:
+
+| **1. Monitor View (Real-time tracking)** | **2. Placement View (Setup & Queue)** |
+| :--- | :--- |
+| ![Monitor View](./images/webapp_monitor.jpg) | ![Placement View](./images/webapp_placement.jpg) |
+| *Features: Live camera feed, absolute coordinate display, and raw serial communication logs.* | *Features: Interactive PCB layout map, feeder coordinate mapping, and placement sequence control.* |
+
+---
+
+### ⚙️ Backend & Motion Control 
+The backend is powered by a **Flask server** (Python)...
 
 ### ⚙️ Backend & Motion Control 
 The backend is powered by a **Flask server** (Python) that orchestrates the automation workflow.
