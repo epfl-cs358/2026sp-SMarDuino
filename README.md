@@ -209,7 +209,7 @@ Below are the two main views of the **3DPlacer Monitor** interface:
 
 | **1. Monitor View (Real-time tracking)** | **2. Placement View (Setup & Queue)** |
 | :--- | :--- |
-| ![Monitor View](./images/webapp_monitor.jpg) | ![Placement View](./images/webapp_placement.jpg) |
+| ![Monitor View](./images/Webapp_monitor.jpeg) | ![Placement View](./images/Webapp.jpeg) |
 | *Features: Live camera feed, absolute coordinate display, and raw serial communication logs.* | *Features: Interactive PCB layout map, feeder coordinate mapping, and placement sequence control.* |
 
 ---
