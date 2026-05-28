@@ -209,8 +209,8 @@ Based on the implementation, the connections are as follows:
 ### Software Layers
 SMarDuino runs on a three-tier software architecture:
 
-*   **Layer 1 (Firmware)**: Custom G-Code interpreter on Arduino Mega to handle XYZ movements and vacuum solenoid.
-*   **Layer 2 (Vision)**: Python script using **OpenCV** to detect component contours, extract rotation angles, and send correction commands.
+*   **Layer 1 (Firmware)**: Custom G-Code interpreter on Arduino Mega to handle XYZ movements and vacuum solenoid. [README of the WebApp](./3d-placer-monitor/README.md).
+*   **Layer 2 (Vision)**: Python script using **OpenCV** to detect component contours, extract rotation angles, and send correction commands. [README of the computer vision](./computer_vision/README.md).
 *   **Layer 3 (UI)**: A web dashboard to upload PCB design files (CSV) and monitor the placement progress in real-time.
 *   
   ![Architecture](./images/software-structure.png)
