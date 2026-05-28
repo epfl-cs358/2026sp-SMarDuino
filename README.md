@@ -1,139 +1,175 @@
-# 🤖 SMarDuino : Pick and Place Machine
-
-<p align="center">
-  <img src="https://img.shields.io/badge/Status-Project%20Proposal-blue?style=for-the-badge" alt="Status Badge">
-  <img src="https://img.shields.io/badge/Hardware-Prusa%20i3%20MK3S%2B-orange?style=for-the-badge" alt="Hardware Badge">
-  <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License Badge">
-</p>
-
----
-
-## 👥 Authors
-*   [**Alae Messaoudi**](https://github.com/alaemessaoudi)
-*   [**Khalil Romdhane**](https://github.com/khalilromdhane)
-*   [**Yahya Boussaadia**](https://github.com/yahyaboussaadia)
-*   [**Yosr Hallab**](https://github.com/yosrhallab)
-*   [**Zeineb Sellami**](https://github.com/zeinebsellami) 
-
----
-
-## 📌 Table of Contents
-1.  [About The Project](#-about-the-project)
-2.  [Final Result](#-final-result)
-3.  [Built With](#-built-with)
-4.  [Prerequisites & BOM](#-prerequisites--bom)
-5.  [Hardware Architecture](#-hardware-architecture)
-6.  [Electronics & Power](#-electronics--power)
-7.  [Software Layers](#-software-layers)
-8.  [Key Challenges & Solutions](#-key-challenges--solutions)
-9.  [Milestones](#-milestones)
-10. [License](#-license)
-
----
-
-## 📖 About The Project
-
-### Motivation
+# SMarDuino : Pick and Place Machine
 Assembling electronic boards manually is a slow and error-prone task. Professional **Pick and Place** machines are often expensive or limited in the thickness of components they can handle.
 
 **SMarDuino** transforms a standard **Prusa i3 MK3S+ 3D printer** into a high-precision automated assembly station. By repurposing the printer's rigid frame and precise motion system, we create a machine capable of:
-*   Picking ultra-small SMD components.
+*   Picking different SMD components.
 *   Correcting orientation via a **Bottom Camera (OpenCV)**.
 *   Placing them accurately on a PCB using a vacuum-controlled nozzle.
 
-> *"With SMarDuino, we solve the thickness limitation of industrial machines while keeping the project open-source and affordable."*
-
-( [Back to top](#-table-of-contents) )
-
+## Table of contents
+- [The final product](#the-final-product)
+- [Bill of materials](#bill-of-materials)
+- [Before you start](#before-you-start)
+- [Build your machine](#build-your-machine)
+    - [1. Nozzle holder](#1-nozzle-holder)
+        - [1.1 X-carriage](#11-x-carriage)
+        - [1.2 Nozzle tips](#12-nozzle-tips)
+        - [1.3 Nozzle](#13-nozzle)
+    - [2. Plate](#2-plate)
+        - [2.1 The base plate](#21-the-base-plate)
+        - [2.2 Feeders: tape](#22-feeders-tape)
+        - [2.3 Feeders: individual pieces](#23-feeders-individual-pieces)
+        - [2.4 Camera holder](#24-camera-holder)
+        - [2.5 PCB holder](#25-pcb-holder)
+        - [2.6 Tip holder](#26-tip-holder)
+    - [3. On the printer body](#3-on-the-printer-body)
+        - [3.1 Pump holder](#31-pump-holder)
+        - [3.2 Limit switches](#32-limit-switches)
+    - [4. Electronics box](#4-electronics-box)
+- [Wire your machine](#wire-your-machine)
+    - [1. Electronics and Power](#electronics-and-Power)
+    - [2. Camera and computer vision](#camera-and-computer-vision)
 ---
 
-## 🚀 Final Result
-At the end of this semester, SMarDuino functions as an autonomous Cartesian.
-
-### 🎥 Demo
-(//we need to add the video of the demo when it is done )
-![Demo GIF](https://via.placeholder.com/600x300.png?text=Place+Your+Demo+GIF+Here)
+### The final product
+![Demo GIF]
 *Watch our full demo video here: [Project Video Link]*
 
-### 📸 Reference Photos
-(add photo references)
-
-( [Back to top](#-table-of-contents) )
-
 ---
 
-## 🛠 Built With
-*   ![React](https://img.shields.io/badge/React-20232A?style=flat&logo=react&logoColor=61DAFB) **Frontend** (Dashboard)
-*   ![Python](https://img.shields.io/badge/Python-3776AB?style=flat&logo=python&logoColor=white) **Backend** (Flask & OpenCV)
-*   ![Arduino](https://img.shields.io/badge/Arduino-00979D?style=flat&logo=arduino&logoColor=white) **Firmware** (C++/G-Code)
-*   ![Prusa](https://img.shields.io/badge/Prusa-FF6600?style=flat&logo=prusa&logoColor=white) **Hardware** (MK3S+ Frame)
+## Bill of materials
+### ***Electronics***
+*   **Arduino Mega 2560** Board (x1)
+*   **Arduino Uno** (x1)
+*   **CNC** Shield (x1)
+*   Stepper motor **17HS4401** (x5)
+*   **A4988** driver (x5)
+*   **Air pump RF370** (x1)
+*   Air pump tubes (interior diameter 2.5mm and 4mm) (x1)
+*   **USB bottom camera** (x1)
+*   **USB isolator** (x1)
+*   Power supply **12V 10A** (x1)
+*   DC Jack (x1)
+*   One buck convertor (x1)
+*   **8-LED WS2812B NeoPixel** ring light (x1)
+*   Jumper wires 
 
----
+### ***Mechanical parts***
+*   **Prusa i3 MK3S+** 3D printer 
+*   **MDF board**
+*   M2.5 and M3 Screws and nuts
+*   2m **Purecrea GT2 belt** (6mm) (x1)
+*   Bearing (x1)
+*   Bearing (x1)
+*   Spring (x1)
+*   Insert (x1)
+*   Steel rod (x2)
 
-## 📦 Prerequisites
-Comprehensive list of elements we used in our project along with needed equipment. To construct the device, one should
-
-**buy:**
-*   **Arduino Mega 2560** Board
-*   **cnc** Shield
-*   5 Stepper motors **17HS4401** + **A4988 Drivers**
-*   **Air pump RF370**
-*   Air pump tubes (interior diameter 2.5mm and 4mm)
-*   **USB bottom camera**
-*   **USB isolator**
-*   Power supply **12V 10A**
-*   2m **Purecrea GT2 belt** (6mm)
-*   DC Jack
-*   One buck convertor
-*   M3 and M4 Screws and nuts
-*   Lightening rings
-
-**have access to:**
-*   **Prusa i3 MK3S+** 3D printer (to be modified)
-*   3D printer with **PETG filament** (for custom parts)
+### ***Have access to*** 
+*   3D printer with **PETG filament** 
 *   Laser cutting machine
-*   **MDF board** (for the base plate)
-*   Soldering kit
-*   Bunch of different screwdrivers
-*   Driller
-
-( [Back to top](#-table-of-contents) )
 
 ---
 
-## 🏗 Hardware Architecture
+## Before you start
+Before assembling the new parts, you first need to remove some of the original ones from your 3D printer. Grab a screwdriver and remove:
+* The heated bed
+* The extruder
+* If needed, the belts — replace them with new ones
 
+## Build your machine
 
-#### 1. Mechanical Conversion
-We replaced the standard Prusa extruder with a custom-engineered **X-Carriage** designed specifically for Pick and Place operations. This modular head integrates both the component handling and the feeding trigger.
+### 1. Nozzle holder
+<img src="./images/head_nozzle1.png" alt="X-carriage" height="500
+" width="500">
+<img src="./images/head_nozzle2.png" alt="X-carriage" width="500" height="500">
 
-*   **Vacuum Grabber Mechanism**: 
-    *   Features a high-precision **vacuum nozzle** mounted on a spring-loaded Z-axis.
-    *   Integrated with a **Y-junction pneumatic circuit** to allow for both picking and release.
+#### ***1.1 X-carriage***
 
-#### 2. Passive Tape Feeding System
-Inspired by the **LumenPnP** open-source community, our feeding system is **fully mechanical and passive**, significantly reducing the machine's weight and electronic footprint.
+This assembly replaces the extruder and integrates both the nozzle holder and the feeder-advance trigger. To build it, print the following parts:
+* X-carriage
+* Nozzle head
 
-*   **Nozzle-Driven Advance**: 
-    *   The head moves to the feeder, and the vacuum nozzle descends into the tape's **sprocket holes**.
-    *   The machine performs a precise linear move to pull the tape forward, eliminating the need for individual stepper motors or servos for each feeder.
-*   **Automatic Synchronized Peeling**: 
-    *   This linear pull drives a series of **3D-printed internal gears**.
-    *   The gears are calibrated with a specific ratio to peel back the protective film automatically as the tape advances, ensuring the components are always exposed at the exact pick-up location.
-*   **Design Efficiency**: 
-    *   **Scalable**: New feeders can be added to the base plate without needing additional motor drivers or wiring.
+Once printed, route the short timing belt through the two X-carriage halves and fasten them together along with the nozzle head. You then need to install:
+* The two bearings in their designated seats
+* The stepper motor used for nozzle rotation
+
+#### ***1.2 Nozzle tips***
+There are currently two tip sizes:
+* A small one for components such as resistors, LEDs, etc.
+* A larger one for components such as ICs, timers, etc.
+
+PETG is not suitable here — it lacks the dimensional accuracy needed for a 1 mm bore. We therefore printed the tips in resin.
+
+#### ***1.3 Nozzle***
+The nozzle is a tube that passes through the two bearings in the nozzle head. Its rotation is driven by the stepper motor through a gear pair. Print the following:
+* The nozzle
+* The gear
+
+Mount the gear on the stepper-motor shaft, then slide the nozzle through the bearings so the two gears mesh.
+
+### 2. Plate
+<img src="./images/plate.png" alt="X-carriage" width="500">
+
+#### ***2.1 The base plate***
+This replaces the heated bed. It is laser-cut from 4 mm MDF. To stabilize it, first print the spacers that go underneath, then screw the whole assembly down.
+
+#### ***2.2 Feeders: tape***
+After evaluating several designs, we settled on a passive mechanical feeder actuated by the nozzle itself. This is a stable and reliable system that also reduces the electrical load and the number of cables routed across the plate.
+
+To build one, print these three pieces:
+* Bottom sprocket
+* Top gear
+* Feeder body
+
+Fasten the bottom sprocket and top gear to the feeder body with screws and nuts, then screw the feeder onto the base plate.
+
+**How it works.** The head moves to the feeder and the vacuum nozzle descends into one of the holes on the tape's carrier strip. A linear move along the tape's axis then pulls the strip forward by one pitch, advancing the next component into the pickup position.
+
+#### ***2.3 Feeders: individual pieces***
+For our demo, we hard-designed dedicated holders that fit specific components by geometry. We recommend you either do the same for the components in your own build or rely on additional tape feeders instead.
+
+#### ***2.4 Camera holder***
+A small 3D-printed enclosure that holds the bottom-vision camera together with a diffuser for the LED ring light. Print:
+* Light diffuser
+* Camera holder
+
+Glue the diffuser to the camera box.
+
+#### ***2.5 PCB holder***
+Start by printing the two parts contained in the file `PCBHolder`.
+
+The holder uses a spring-loaded clamping design. The assembly consists of two rods, a screw, a spring, and a threaded insert pressed into the moving jaw, which together allow controlled translation to clamp PCBs of different widths. (Refer to the image for details.)
+
+#### ***2.6 Tip holder***
+
+For now this part is only used to store the tips, but it is intended to become the docking station for an automatic tip-change routine.
+
+### 3. On the printer body
+#### ***3.1 Pump holder***
+A simple bracket mounted on top of the printer frame. Print it and slide the vacuum pump into it.
+
+#### ***3.2 Limit switches***
+Limit switches serve three purposes:
+* **Homing** — establishing the machine's zero reference at startup
+* **Crash protection** — stopping a motor before the head reaches a mechanical end-stop
+* **Workspace bounds** — defining the usable travel of each axis in software
+
+We installed one switch per axis (X, Y, Z), three in total. Print the three switch brackets and make sure they are rigidly fixed — a large share of calibration accuracy issues trace back to a loose limit-switch mount.
+
+### 4. Electronics box
+To keep the wiring tidy and protected, we designed a laser-cut MDF enclosure. The bottom is left open for easy power-supply routing and Arduino access, and a sliding door provides quick access for last-minute adjustments. 
+
+Once all the parts are cut, assemble them with wood glue. When the box has set, fasten it to the same side of the printer as the X-axis motor, then mount the control circuit on the right-hand inner wall and close the door.
 
 ---
-
-## ⚡ Electronics & Power
+## Wire your machine
+### 1. Electronics and Power
 To avoid electrical noise, we implemented a **Dual Power Supply** system:
 1.  **PSU A (12V/10A)**: Dedicated to the 5 high-current stepper motors.
 2.  **BUCK Convertor** : from 12V to 5V for the pump
 
-
-## Electronics Assembly
-
-The final electronic architecture of the project has been assembled.
+The final electronic architecture of the project contains:
 
 - Arduino Mega connected to the CNC Shield
 - Five stepper motor drivers installed and configured
@@ -151,41 +187,26 @@ homing, component pickup, camera alignment, and PCB placement.
 ![Electronics Diagram]()
 (<img width="1451" height="770" alt="Capture d&#39;écran 2026-05-21 030021" src="https://github.com/user-attachments/assets/d6a49caf-2faa-4bd9-badd-0593c9f2a8b9" />
 
-###  Electronics Assembly of the CV
+### 2. Camera and computer vision
+The bottom-vision camera looks **upward** at the nozzle so that, with a component held against the tip, the system can verify its orientation before placement and apply a rotation correction if needed.
 
-To support the Computer Vision module, a custom illumination system was developed. This ensures consistent lighting conditions for the HSV extraction algorithm.
+The camera is paired with an **8-LED WS2812B NeoPixel ring** (32 mm outer / 18 mm inner diameter) that surrounds the lens. Ring illumination is essential here: it provides even, shadow-free lighting on the underside of the component, which is what the vision pipeline relies on to extract a clean silhouette and a stable orientation reading. The ring is driven from a single Arduino digital pin via the Adafruit NeoPixel library.
 
-#### 1. Hardware Components
-* **Microcontroller**: Arduino Uno Rev3.
-* **Light Source**: LED Ring (controlled via Digital Pins).
-* **Housing**: Custom 3D-printed diffuser designed to eliminate reflections on metallic SMD components.
-
-#### 2. Wiring Diagram
+#### ***Wiring Diagram***
 Based on the implementation, the connections are as follows:
 
 | Ring Light Wire | Arduino Pin | Function |
 | :--- | :--- | :--- |
 | **Red** | **5V** | Power Supply (Stable 5V for LED consistency) |
 | **Black** | **GND** | Ground |
-| **Purple** | **D10** | Signal / Control Pin A |
-| **Yellow** | **D11** | Signal / Control Pin B |
-
-> [!IMPORTANT]
-> Always use the **5V** pin instead of *Vin* when powering from USB to ensure the LED ring receives a regulated voltage, which is critical for maintaining stable brightness during image processing.
-
-#### 3. Visual Setup
-
-  ![CV](./images/computer_vision_electronics1.jpeg)
-  ![CV](./images/computer_vision_electronics2.jpeg)
-  ![CV](./images/computer_vision_electronics3.jpeg)
-
-
-
-( [Back to top](#-table-of-contents) )
+| **Purple/blue** | **D10** | Signal / Control Pin 10 |
+| **Yellow** | **D11** | Signal / Control Pin 11 |
 
 ---
 
-## 💻 Software Layers
+## Running the software
+
+### Software Layers
 SMarDuino runs on a three-tier software architecture:
 
 *   **Layer 1 (Firmware)**: Custom G-Code interpreter on Arduino Mega to handle XYZ movements and vacuum solenoid.
@@ -194,156 +215,46 @@ SMarDuino runs on a three-tier software architecture:
 *   
   ![Architecture](./images/software-structure.png)
 
+### Prerequisites
+- **Node.js** ≥ 18 and **npm**
+- **Python** ≥ 3.10 with `pip`
+- **Arduino IDE** (or `arduino-cli`)
+- A USB-A cable to the Arduino Mega
 
----
-## 💻 Software Architecture
+### 1. Flash the firmware
+1. Open `3d-placer-monitor/placer_4axis/placer_4axis.ino` in the Arduino IDE.
+2. Install the **AccelStepper** library via *Sketch → Include Library → Manage Libraries → search "AccelStepper" → Install*.
+3. Select board: **Arduino Mega 2560**, select the right serial port, click **Upload**.
+4. Open the Serial Monitor at **9600 baud** to confirm the `READY` banner appears, then close it (only one process can own the serial port at a time).
 
-### 🎨 Frontend 
-The interface is a **Node.js WebApp** that serves as the machine's control center.
-*   **Role**: It acts as a visual serial monitor. It allows the user to upload `.pos` files (exported from KiCad/Altium) which contain the coordinates and rotations of all components.
-*   **Data Flow**: The app converts the `.pos` data into a structured **JSON** format, which is then sent to the backend for processing.
-*   **Tech Stack**: React, JavaScript, Tailwind CSS.
-
-### ⚙️ Backend & Motion Control 
-The backend is powered by a **Flask server** (Python) that orchestrates the automation workflow.
-
-**The Command Pipeline:**
-1.  **Parsing**: Transforms JSON coordinates into Python floats.
-2.  **G-Code Generation**: Converts coordinates into standardized serial commands (e.g., `M X22 Y33 Z44`).
-3.  **Serial Communication**: Streams these commands via the COM port to the Arduino Mega.
-
-**Motion Logic:**
-*   **Homing Procedure**: Uses NC (Normally Closed) limit switches with a specialized **backoff movement** to ensure high-precision reference positioning (X0, Y0, Z0).
-*   **Automated Sequence**: 
-    `Homing` ➡️ `Move to Feeder` ➡️ `Pick (Vacuum ON)` ➡️ `Move to Camera (Alignment)` ➡️ `Place (Vacuum OFF)` ➡️ `Return to Home`.
-
-    ![Architecture](./images/placement-component.png)
-
-### 👁️ Computer Vision
-The CV module is the "brain" that ensures placement accuracy by detecting offsets in real-time.
-
-
-👉 **[See all the detailed documentation of the CV](./computer_vision/README.md)**
-
-
-
-*   **Detection Logic**: Initially based on color, the system was upgraded to a Brightness/Contrast-based detection (HSV Value channel extraction) to handle metallic and black SMD components regardless of ambient light.
-*   **Pre-processing**: Noise elimination and pad filtering using a circularity threshold (< 0.8) to stabilize classification.
-*   **Advanced Lighting**: Integration of a **[Custom Ring Light](#electronics-assembly)** + Diffuser (3D printed) to remove light "blobs" and ensure homogeneous diffusion. 
-    > *See the [Wiring & Electronics section](#electronics-assembly) for the hardware implementation.*
-*   **Feature Extraction**:
-    *   Isolates metallic leads from dark backgrounds/nozzles.
-    *   Detects component center coordinates and precise rotation angles.
-    *   Converts visual pixel errors into motor steps for real-time correction.
-*   **Supported Classification**: Resistors, Capacitors, LEDs, and Timers.
-*   ## 🚀 Getting Started (Software)
-
-### 1️⃣ Prerequisites
-*   **Node.js** (v18+)
-*   **Python** (3.10+)
-*   **Arduino IDE**
-
-### 2️⃣ Clone & Setup
-
-
-### 1. Clone the Project
-```bash
-git clone https://github.com/epfl-cs358/2026sp-SMarDuino.git
-cd 2026sp-SMarDuino
-```
-
-### 2. Frontend (Node.js)
+### 2. Start the web dashboard
 ```bash
 cd 3d-placer-monitor
 npm install
-node server.js
+npm start
 ```
-It will be available at  http://localhost:3000
+Open **http://localhost:3000** for the Monitor view, or **http://localhost:3000/placement.html** for the Placement view. Pick the Arduino's COM port from the dropdown and click **Connect**.
 
-### 3. Backend (Flask + OpenCV)
-Windows :
+### 3. Run the bottom-vision module
 ```bash
 cd computer_vision
-python -m venv venv
-venv\Scripts\activate
-pip install flask opencv-python pyserial numpy
-python run_placement.py
+python vision_bridge.py --camera 1 --port 5001 --pcb "C:path\to\your\pos\file.csv"
 ```
-Linux/Mac :
-```bash
-cd computer_vision
-python3 -m venv venv
-source venv/bin/activate
-pip install flask opencv-python pyserial numpy
-python3 run_placement.py
-```
-The flask server runs on: http://localhost:5000
+Open it on **http://localhost:3000/vision.html** 
 
-### 4. Firmware Arduino
-
-Launch the **Arduino IDE**
-
-Go to File > Open and load 3d-placer-monitor/placer_4axis/placer_4axis.ino
-
-In **Tools** > **Board**, Select **Arduino Mega 2560**
-
-In **Tools** > **Port**, select the COM port of the board (ex: COM3)
-
-Click **Upload** 
-
-
-### 5. Configuration
-In the 3d-placer-monitor/config.json, put on these parameters :
-```bash
-pythonSERIAL_PORT = "COM3"        # Windows : COM3 / Linux : /dev/ttyUSB0
-BAUD_RATE   = 115200
-CAMERA_ID   = 0             # Index of the USB camera (0, 1, 2...)
-STEPS_PER_MM_X = 80
-STEPS_PER_MM_Y = 80
-STEPS_PER_MM_Z = 400
-```
-
-6. Start the session
-Make sure that :
-
-✅ Arduino is flashed and connected via USB
-
-✅ Backend Flask is running
-
-✅ Frontend Next.js running
-
-Run http://localhost:3000
-Import **.pos** file exported from KiCad/Altium
-Click on **Start** — the machine will do the homing and start the placement of the components
-
----
-
-### 🔄 Software & CV Integration Bridge
-
-The integration between the **Flask Backend** and the **OpenCV Module** works through a closed-loop feedback system:
-//See with Khlil about the integration and add this part 
-
-**Workflow Diagram:**
-`Backend Logic` ⮕ `CV Analysis` ⮕ `Coordinate Correction` ⮕ `Arduino G-Code'
-
----
-## ⚠️ Key Challenges & Solutions
-
-| Problem | Solution |
-| :--- | :--- |
-| **Sticky Components** | Implemented a **Y-junction pneumatic circuit** with a "Blow-off" pulse to cleanly release parts. |
-| **Tube Twisting** | Integrated **Sealing Bearings** and software rotation limits (-90° to +90°). |
-| **Precision** | Leveraged the MK3S+ micro-stepping capabilities for high repeatability. |
----
+Change the camera index if it is the wrong one
 
 
 
-## 📅 Milestones
-*   [x] **Milestone 1**: Mechanical conversion and basic XYZ motion control.
-*   [x] **Milestone 2**: Integration of the feeding system and OpenCV vision module.
-*   [ ] **Milestone 3**: Final reliability testing and full autonomous PCB assembly.
 
----
+## Acknowledgments
 
+### Contributers
+*   [**Alae Messaoudi**](https://github.com/alaemessaoudi)
+*   [**Khalil Romdhane**](https://github.com/khalilromdhane)
+*   [**Yahya Boussaadia**](https://github.com/yahyaboussaadia)
+*   [**Yosr Hallab**](https://github.com/yosrhallab)
+*   [**Zeineb Sellami**](https://github.com/zeinebsellami) 
 
-
+We would like to thank our professor and TAs for the guidance and the patience throughout the whole semester. Special thanks to the friends who showed up, stayed late, and cheered when a single resistance finally landed where it was supposed to.
+And a moment of silence, for all the A4988 drivers who gave their lives so this project could move. Gone, but not forgotten. 
