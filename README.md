@@ -259,4 +259,4 @@ Change the camera index if it is the wrong one
 We would like to thank our professor and TAs for the guidance and the patience throughout the whole semester. Special thanks to the friends who showed up, stayed late, and cheered when a single resistance finally landed where it was supposed to.
 And a moment of silence, for all the A4988 drivers who gave their lives so this project could move. Gone, but not forgotten. 
 
-  ![team photo ](./images/MIT-group)
+  ![team photo ](./images/MIT-group.jpeg)
