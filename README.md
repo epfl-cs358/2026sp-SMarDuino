@@ -34,6 +34,9 @@ Assembling electronic boards manually is a slow and error-prone task. Profession
 ### The final product
 [![Demo GIF]
 *Watch our full demo video here: [Project Video Link]*](https://github.com/user-attachments/assets/6840ac97-82fd-42fa-adcd-1b4209363f77)
+## Demo video
+[See the full demo for big and little components](https://github.com/orgs/epfl-cs358/projects/52/views/1?pane=issue&itemId=184742349&issue=epfl-cs358%7C2026sp-SMarDuino%7C44)
+
 
 ---
 
