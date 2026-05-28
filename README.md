@@ -32,8 +32,8 @@ Assembling electronic boards manually is a slow and error-prone task. Profession
 ---
 
 ### The final product
-![Demo GIF]
-*Watch our full demo video here: [Project Video Link]*
+[![Demo GIF]
+*Watch our full demo video here: [Project Video Link]*](https://github.com/user-attachments/assets/6840ac97-82fd-42fa-adcd-1b4209363f77)
 
 ---
 
